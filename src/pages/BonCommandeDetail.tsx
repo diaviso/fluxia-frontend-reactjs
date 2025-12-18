@@ -116,6 +116,19 @@ export const BonCommandeDetail = () => {
             </div>
           </div>
 
+          {/* Guide d'utilisation */}
+          <div style={styles.helpGuide}>
+            <span style={styles.helpGuideIcon}>💡</span>
+            <div style={styles.helpGuideContent}>
+              <strong>Actions disponibles :</strong>
+              <span style={styles.helpGuideText}>
+                📥 <strong>Télécharger PDF</strong> = Obtenir le document officiel à imprimer • 
+                📦 <strong>Réception</strong> = Enregistrer la livraison des marchandises • 
+                🔄 <strong>Régénérer</strong> = Modifier et recréer le bon de commande
+              </span>
+            </div>
+          </div>
+
           <div style={styles.contentGrid}>
             {/* Informations générales */}
             <div style={styles.card}>
@@ -319,6 +332,31 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderTop: '4px solid #4299e1',
     borderRadius: '50%',
     animation: 'spin 1s linear infinite',
+  },
+  helpGuide: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '12px',
+    padding: '16px 20px',
+    background: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: '12px',
+    marginBottom: '20px',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+  },
+  helpGuideIcon: {
+    fontSize: '20px',
+    flexShrink: 0,
+  },
+  helpGuideContent: {
+    flex: 1,
+    fontSize: '13px',
+    color: '#4b5563',
+    lineHeight: '1.6',
+  },
+  helpGuideText: {
+    display: 'block',
+    marginTop: '4px',
+    color: '#6b7280',
   },
   header: {
     background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',

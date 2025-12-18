@@ -121,12 +121,27 @@ export default function AdminDashboard() {
         {/* Page Header */}
         <div style={styles.pageHeader}>
           <div>
-            <h1 style={styles.pageTitle}>Tableau de bord</h1>
-            <p style={styles.pageSubtitle}>Vue d'ensemble de votre système</p>
+            <h1 style={styles.pageTitle}>Tableau de bord Administrateur</h1>
+            <p style={styles.pageSubtitle}>Gérez l'ensemble du système Fluxia depuis ce panneau</p>
           </div>
-          <button style={styles.refreshBtn} onClick={loadData}>
+          <button style={styles.refreshBtn} onClick={loadData} title="Recharger les données">
             🔄 Actualiser
           </button>
+        </div>
+
+        {/* Guide Admin */}
+        <div style={styles.adminGuide}>
+          <div style={styles.guideIcon}>📚</div>
+          <div style={styles.guideContent}>
+            <h3 style={styles.guideTitle}>Guide de l'administrateur</h3>
+            <p style={styles.guideText}>
+              <strong>👥 Utilisateurs</strong> : Gérez les comptes, activez/désactivez, attribuez les rôles • 
+              <strong>🏢 Divisions</strong> : Créez les divisions et désignez leurs chefs • 
+              <strong>🔧 Services</strong> : Organisez les services par division • 
+              <strong>📦 Matières</strong> : Cataloguez les articles disponibles • 
+              <strong>🏭 Fournisseurs</strong> : Gérez vos partenaires commerciaux
+            </p>
+          </div>
         </div>
 
         {/* Stats Grid */}
@@ -357,6 +372,35 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '14px',
     color: '#64748b',
     margin: '4px 0 0 0',
+  },
+  adminGuide: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '16px',
+    padding: '20px 24px',
+    background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+    borderRadius: '16px',
+    marginBottom: '24px',
+    border: '1px solid #bbf7d0',
+  },
+  guideIcon: {
+    fontSize: '28px',
+    flexShrink: 0,
+  },
+  guideContent: {
+    flex: 1,
+  },
+  guideTitle: {
+    fontSize: '16px',
+    fontWeight: '700',
+    color: '#166534',
+    margin: '0 0 8px 0',
+  },
+  guideText: {
+    fontSize: '13px',
+    color: '#15803d',
+    margin: 0,
+    lineHeight: '1.7',
   },
   refreshBtn: {
     padding: '10px 20px',

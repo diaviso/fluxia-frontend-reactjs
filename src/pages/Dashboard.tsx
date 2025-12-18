@@ -113,51 +113,77 @@ export function Dashboard() {
               Bienvenue sur votre tableau de bord. Voici un aperçu de vos expressions de besoin.
             </p>
           </div>
-          <button onClick={() => navigate('/expressions/create')} style={styles.createButton}>
+          <button 
+            onClick={() => navigate('/expressions/create')} 
+            style={styles.createButton}
+            title="Cliquez ici pour créer une nouvelle demande de matériel ou fournitures"
+          >
             <span style={styles.createButtonIcon}>+</span>
             Nouvelle Expression
           </button>
         </div>
 
+        {/* Guide d'utilisation */}
+        <div style={styles.helpBanner}>
+          <div style={styles.helpIcon}>💡</div>
+          <div style={styles.helpContent}>
+            <h3 style={styles.helpTitle}>Comment utiliser Fluxia ?</h3>
+            <p style={styles.helpText}>
+              <strong>1.</strong> Créez une expression de besoin en cliquant sur "Nouvelle Expression" • 
+              <strong> 2.</strong> Ajoutez les matières dont vous avez besoin • 
+              <strong> 3.</strong> Soumettez pour validation • 
+              <strong> 4.</strong> Suivez l'avancement dans "Mes Expressions"
+            </p>
+          </div>
+        </div>
+
         {/* Stats Cards */}
         <div style={styles.statsGrid}>
-          <div style={styles.statCard} onClick={() => navigate('/expressions')}>
+          <div 
+            style={styles.statCard} 
+            onClick={() => navigate('/expressions')}
+            title="Cliquez pour voir toutes vos expressions de besoin"
+          >
             <div style={styles.statIconWrapper}>
               <span style={{...styles.statIconBg, background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'}}>📋</span>
             </div>
             <div style={styles.statInfo}>
               <span style={styles.statValue}>{stats.totalExpressions}</span>
               <span style={styles.statLabel}>Total Expressions</span>
+              <span style={styles.statHint}>Toutes vos demandes</span>
             </div>
           </div>
 
-          <div style={styles.statCard}>
+          <div style={styles.statCard} title="Expressions en cours de rédaction, non encore soumises">
             <div style={styles.statIconWrapper}>
               <span style={{...styles.statIconBg, background: 'linear-gradient(135deg, #64748b 0%, #475569 100%)'}}>📝</span>
             </div>
             <div style={styles.statInfo}>
               <span style={styles.statValue}>{stats.brouillon}</span>
               <span style={styles.statLabel}>Brouillons</span>
+              <span style={styles.statHint}>À compléter</span>
             </div>
           </div>
 
-          <div style={styles.statCard}>
+          <div style={styles.statCard} title="Expressions approuvées par le validateur">
             <div style={styles.statIconWrapper}>
               <span style={{...styles.statIconBg, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)'}}>✅</span>
             </div>
             <div style={styles.statInfo}>
               <span style={styles.statValue}>{stats.valide}</span>
               <span style={styles.statLabel}>Validées</span>
+              <span style={styles.statHint}>Approuvées</span>
             </div>
           </div>
 
-          <div style={styles.statCard}>
+          <div style={styles.statCard} title="Expressions soumises en attente de validation">
             <div style={styles.statIconWrapper}>
               <span style={{...styles.statIconBg, background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'}}>⏳</span>
             </div>
             <div style={styles.statInfo}>
               <span style={styles.statValue}>{stats.enAttente}</span>
               <span style={styles.statLabel}>En Attente</span>
+              <span style={styles.statHint}>En cours de validation</span>
             </div>
           </div>
         </div>
@@ -319,6 +345,35 @@ const styles: {[key:string]:React.CSSProperties} = {
     fontSize: '20px',
     fontWeight: '700',
   },
+  helpBanner: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '16px',
+    padding: '20px 24px',
+    background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+    borderRadius: '16px',
+    marginBottom: '24px',
+    border: '1px solid #fcd34d',
+  },
+  helpIcon: {
+    fontSize: '28px',
+    flexShrink: 0,
+  },
+  helpContent: {
+    flex: 1,
+  },
+  helpTitle: {
+    fontSize: '16px',
+    fontWeight: '700',
+    color: '#92400e',
+    margin: '0 0 8px 0',
+  },
+  helpText: {
+    fontSize: '14px',
+    color: '#78350f',
+    margin: 0,
+    lineHeight: '1.6',
+  },
   statsGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
@@ -363,6 +418,12 @@ const styles: {[key:string]:React.CSSProperties} = {
     fontSize: '14px',
     color: '#64748b',
     marginTop: '4px',
+  },
+  statHint: {
+    fontSize: '11px',
+    color: '#94a3b8',
+    marginTop: '2px',
+    fontStyle: 'italic',
   },
   contentGrid: {
     display: 'grid',

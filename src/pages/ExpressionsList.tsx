@@ -148,14 +148,30 @@ export const ExpressionsList = () => {
           <div style={styles.header}>
             <div>
               <h1 style={styles.title}>Gestion des Expressions de Besoin</h1>
-              <p style={styles.subtitle}>Gestion des expressions de besoin du CROUS</p>
+              <p style={styles.subtitle}>Retrouvez ici toutes vos demandes de matériel et fournitures</p>
             </div>
             <button
               onClick={() => navigate('/expressions/create')}
               style={styles.createButton}
+              title="Créer une nouvelle demande de matériel"
             >
               + Nouvelle expression
             </button>
+          </div>
+
+          {/* Guide d'aide */}
+          <div style={styles.helpBox}>
+            <span style={styles.helpBoxIcon}>💡</span>
+            <div style={styles.helpBoxContent}>
+              <strong>Comprendre les statuts :</strong>
+              <span style={styles.helpBoxText}>
+                📝 <strong>Brouillon</strong> = En cours de rédaction • 
+                ⏳ <strong>En attente</strong> = Soumise pour validation • 
+                ✅ <strong>Validée</strong> = Approuvée • 
+                ❌ <strong>Refusée</strong> = Non approuvée (voir commentaire) • 
+                📦 <strong>Prise en charge</strong> = Bon de commande généré
+              </span>
+            </div>
           </div>
 
           {/* Stats Cards */}
@@ -503,6 +519,31 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'pointer',
     boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
     transition: 'all 0.2s ease',
+  },
+  helpBox: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '12px',
+    padding: '16px 20px',
+    background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+    borderRadius: '12px',
+    marginBottom: '20px',
+    border: '1px solid #bfdbfe',
+  },
+  helpBoxIcon: {
+    fontSize: '20px',
+    flexShrink: 0,
+  },
+  helpBoxContent: {
+    flex: 1,
+    fontSize: '13px',
+    color: '#1e40af',
+    lineHeight: '1.6',
+  },
+  helpBoxText: {
+    display: 'block',
+    marginTop: '4px',
+    color: '#3b82f6',
   },
   oldSearchBar: {
     display: 'flex',
