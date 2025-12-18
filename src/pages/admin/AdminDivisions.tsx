@@ -1,32 +1,27 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Layout } from '../../components/Layout';
-import { useAuth } from '../../contexts/AuthContext';
+import { AdminLayout, DataTable, Modal, Button, Badge, FormField, Input, Select } from '../../components/admin';
 import { divisionService, type Division } from '../../services/division.service';
 import { adminService } from '../../services/admin.service';
+import type { Column } from '../../components/admin/DataTable';
 
 export default function AdminDivisions() {
-  const navigate = useNavigate();
-  const { user: currentUser } = useAuth();
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editingDivision, setEditingDivision] = useState<Division | null>(null);
+  const [deleteModal, setDeleteModal] = useState<Division | null>(null);
   const [formData, setFormData] = useState({
     nom: '',
     code: '',
-    directeurId: undefined as number | undefined,
+    directeurId: '',
   });
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (currentUser?.role !== 'ADMIN') {
-      navigate('/expressions');
-      return;
-    }
     loadData();
-  }, [currentUser, navigate]);
+  }, []);
 
   const loadData = async () => {
     try {
@@ -36,377 +31,412 @@ export default function AdminDivisions() {
       ]);
       setDivisions(divisionsData);
       setUsers(usersData);
-    } catch (err) {
-      setError('Erreur lors du chargement des données');
-      console.error(err);
+    } catch (error) {
+      console.error('Erreur lors du chargement:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+  const validateForm = () => {
+    const newErrors: { [key: string]: string } = {};
+    if (!formData.nom.trim()) newErrors.nom = 'Le nom est requis';
+    if (!formData.code.trim()) newErrors.code = 'Le code est requis';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+    
+    setSubmitting(true);
     try {
-      if (editingId) {
-        await divisionService.update(editingId, formData);
+      const data = {
+        nom: formData.nom,
+        code: formData.code,
+        directeurId: formData.directeurId ? Number(formData.directeurId) : undefined,
+      };
+
+      if (editingDivision) {
+        await divisionService.update(editingDivision.id, data);
       } else {
-        await divisionService.create(formData);
+        await divisionService.create(data);
       }
       await loadData();
-      resetForm();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Erreur lors de l\'enregistrement');
+      closeModal();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Erreur lors de l\'enregistrement');
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleEdit = (division: Division) => {
-    setEditingId(division.id);
+  const handleDelete = async () => {
+    if (!deleteModal) return;
+    try {
+      await divisionService.delete(deleteModal.id);
+      await loadData();
+      setDeleteModal(null);
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Erreur lors de la suppression');
+    }
+  };
+
+  const openCreateModal = () => {
+    setEditingDivision(null);
+    setFormData({ nom: '', code: '', directeurId: '' });
+    setErrors({});
+    setShowModal(true);
+  };
+
+  const openEditModal = (division: Division) => {
+    setEditingDivision(division);
     setFormData({
       nom: division.nom,
       code: division.code,
-      directeurId: division.directeurId,
+      directeurId: division.directeurId?.toString() || '',
     });
-    setShowForm(true);
+    setErrors({});
+    setShowModal(true);
   };
 
-  const handleDelete = async (id: number, nom: string) => {
-    if (!window.confirm(`Voulez-vous vraiment supprimer la division "${nom}" ?\n\nCette action est irréversible et ne peut être effectuée que si la division n'a aucune expression de besoin.`)) {
-      return;
-    }
-
-    try {
-      await divisionService.delete(id);
-      await loadData();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Erreur lors de la suppression');
-    }
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingDivision(null);
+    setFormData({ nom: '', code: '', directeurId: '' });
+    setErrors({});
   };
 
-  const resetForm = () => {
-    setFormData({ nom: '', code: '', directeurId: undefined });
-    setEditingId(null);
-    setShowForm(false);
-    setError('');
-  };
-
-  if (loading) {
-    return (
-      <Layout>
-        <div style={styles.container}>
-          <p>Chargement...</p>
+  const columns: Column<Division>[] = [
+    {
+      key: 'nom',
+      header: 'Division',
+      sortable: true,
+      render: (division) => (
+        <div style={styles.divisionCell}>
+          <div style={styles.divisionIcon}>🏢</div>
+          <div style={styles.divisionInfo}>
+            <span style={styles.divisionName}>{division.nom}</span>
+            <Badge variant="info" size="sm">{division.code}</Badge>
+          </div>
         </div>
-      </Layout>
-    );
-  }
+      ),
+    },
+    {
+      key: 'directeur',
+      header: 'Directeur',
+      render: (division) => division.directeur ? (
+        <div style={styles.directorCell}>
+          <div style={styles.directorAvatar}>
+            {division.directeur.prenom?.[0] || division.directeur.nom?.[0] || '?'}
+          </div>
+          <span>{division.directeur.prenom} {division.directeur.nom}</span>
+        </div>
+      ) : <span style={styles.muted}>Non assigné</span>,
+    },
+    {
+      key: 'services',
+      header: 'Services',
+      render: (division) => (
+        <span style={styles.countBadge}>{division.services?.length || 0}</span>
+      ),
+    },
+    {
+      key: '_count.users',
+      header: 'Utilisateurs',
+      sortable: true,
+      render: (division) => (
+        <span style={styles.countBadge}>{division._count?.users || 0}</span>
+      ),
+    },
+    {
+      key: '_count.expressions',
+      header: 'Expressions',
+      sortable: true,
+      render: (division) => (
+        <span style={styles.countBadge}>{division._count?.expressions || 0}</span>
+      ),
+    },
+  ];
+
+  const renderActions = (division: Division) => (
+    <div style={styles.actions}>
+      <Button size="sm" variant="secondary" onClick={() => openEditModal(division)}>
+        ✏️ Modifier
+      </Button>
+      {division._count?.expressions === 0 && (
+        <Button size="sm" variant="danger" onClick={() => setDeleteModal(division)}>
+          🗑️ Supprimer
+        </Button>
+      )}
+    </div>
+  );
+
+  const totalUsers = divisions.reduce((acc, d) => acc + (d._count?.users || 0), 0);
+  const totalServices = divisions.reduce((acc, d) => acc + (d.services?.length || 0), 0);
 
   return (
-    <Layout>
+    <AdminLayout>
       <div style={styles.container}>
-        <div style={styles.header}>
-          <h1 style={styles.title}>🏢 Gestion des Divisions</h1>
-          <div style={styles.headerActions}>
-            <button
-              style={styles.addButton}
-              onClick={() => setShowForm(!showForm)}
-            >
-              {showForm ? '✕ Annuler' : '+ Nouvelle Division'}
-            </button>
-            <button style={styles.backButton} onClick={() => navigate('/admin')}>
-              ← Retour
-            </button>
+        {/* Page Header */}
+        <div style={styles.pageHeader}>
+          <div>
+            <h1 style={styles.pageTitle}>Gestion des Divisions</h1>
+            <p style={styles.pageSubtitle}>Organisez la structure de votre entreprise</p>
+          </div>
+          <Button variant="success" icon="+" onClick={openCreateModal}>
+            Nouvelle Division
+          </Button>
+        </div>
+
+        {/* Stats */}
+        <div style={styles.statsRow}>
+          <div style={styles.statItem}>
+            <span style={styles.statValue}>{divisions.length}</span>
+            <span style={styles.statLabel}>Divisions</span>
+          </div>
+          <div style={styles.statDivider}></div>
+          <div style={styles.statItem}>
+            <span style={{ ...styles.statValue, color: '#6366f1' }}>{totalServices}</span>
+            <span style={styles.statLabel}>Services</span>
+          </div>
+          <div style={styles.statDivider}></div>
+          <div style={styles.statItem}>
+            <span style={{ ...styles.statValue, color: '#10b981' }}>{totalUsers}</span>
+            <span style={styles.statLabel}>Utilisateurs</span>
           </div>
         </div>
 
-        {error && <div style={styles.error}>{error}</div>}
+        {/* Data Table */}
+        <DataTable
+          data={divisions}
+          columns={columns}
+          loading={loading}
+          searchPlaceholder="Rechercher une division..."
+          searchKeys={['nom', 'code']}
+          actions={renderActions}
+          emptyMessage="Aucune division trouvée"
+        />
 
-        {showForm && (
-          <div style={styles.formContainer}>
-            <h2 style={styles.formTitle}>
-              {editingId ? 'Modifier la Division' : 'Nouvelle Division'}
-            </h2>
-            <form onSubmit={handleSubmit} style={styles.form}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Nom *</label>
-                <input
-                  type="text"
-                  value={formData.nom}
-                  onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
-                  style={styles.input}
-                  required
-                />
-              </div>
+        {/* Create/Edit Modal */}
+        <Modal
+          isOpen={showModal}
+          onClose={closeModal}
+          title={editingDivision ? 'Modifier la division' : 'Nouvelle division'}
+          footer={
+            <>
+              <Button variant="secondary" onClick={closeModal}>Annuler</Button>
+              <Button 
+                variant="primary" 
+                onClick={handleSubmit}
+                loading={submitting}
+              >
+                {editingDivision ? 'Modifier' : 'Créer'}
+              </Button>
+            </>
+          }
+        >
+          <div style={styles.form}>
+            <FormField label="Nom de la division" required error={errors.nom}>
+              <Input
+                value={formData.nom}
+                onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                placeholder="Ex: Direction Informatique"
+                hasError={!!errors.nom}
+              />
+            </FormField>
 
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Code *</label>
-                <input
-                  type="text"
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                  style={styles.input}
-                  required
-                />
-              </div>
+            <FormField label="Code" required error={errors.code} hint="Code unique pour identifier la division">
+              <Input
+                value={formData.code}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                placeholder="Ex: DI"
+                hasError={!!errors.code}
+              />
+            </FormField>
 
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Directeur</label>
-                <select
-                  value={formData.directeurId || ''}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    directeurId: e.target.value ? Number(e.target.value) : undefined
-                  })}
-                  style={styles.input}
-                >
-                  <option value="">Aucun</option>
-                  {users.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.nom} {user.prenom} ({user.email})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={styles.formActions}>
-                <button type="submit" style={styles.submitButton}>
-                  {editingId ? 'Modifier' : 'Créer'}
-                </button>
-                <button type="button" style={styles.cancelButton} onClick={resetForm}>
-                  Annuler
-                </button>
-              </div>
-            </form>
+            <FormField label="Directeur">
+              <Select
+                value={formData.directeurId}
+                onChange={(e) => setFormData({ ...formData, directeurId: e.target.value })}
+                placeholder="Sélectionner un directeur (optionnel)"
+                options={[
+                  { value: '', label: 'Aucun directeur' },
+                  ...users.map((user) => ({
+                    value: user.id.toString(),
+                    label: `${user.prenom} ${user.nom} (${user.email})`,
+                  })),
+                ]}
+              />
+            </FormField>
           </div>
-        )}
+        </Modal>
 
-        <div style={styles.tableContainer}>
-          <table style={styles.table}>
-            <thead>
-              <tr style={styles.tableHeaderRow}>
-                <th style={styles.th}>Nom</th>
-                <th style={styles.th}>Code</th>
-                <th style={styles.th}>Directeur</th>
-                <th style={styles.th}>Services</th>
-                <th style={styles.th}>Utilisateurs</th>
-                <th style={styles.th}>Expressions</th>
-                <th style={styles.th}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {divisions.map((division) => (
-                <tr key={division.id} style={styles.tableRow}>
-                  <td style={styles.td}>{division.nom}</td>
-                  <td style={styles.td}>
-                    <span style={styles.codeBadge}>{division.code}</span>
-                  </td>
-                  <td style={styles.td}>
-                    {division.directeur ? (
-                      `${division.directeur.nom} ${division.directeur.prenom}`
-                    ) : (
-                      <span style={styles.noDirector}>Aucun directeur</span>
-                    )}
-                  </td>
-                  <td style={styles.td}>{division.services?.length || 0}</td>
-                  <td style={styles.td}>{division._count?.users || 0}</td>
-                  <td style={styles.td}>{division._count?.expressions || 0}</td>
-                  <td style={styles.td}>
-                    <div style={styles.actions}>
-                      <button
-                        style={styles.editButton}
-                        onClick={() => handleEdit(division)}
-                      >
-                        ✏️ Modifier
-                      </button>
-                      {division._count?.expressions === 0 && (
-                        <button
-                          style={styles.deleteButton}
-                          onClick={() => handleDelete(division.id, division.nom)}
-                        >
-                          🗑️ Supprimer
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {/* Delete Modal */}
+        <Modal
+          isOpen={!!deleteModal}
+          onClose={() => setDeleteModal(null)}
+          title="Confirmer la suppression"
+          size="sm"
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setDeleteModal(null)}>Annuler</Button>
+              <Button variant="danger" onClick={handleDelete}>Supprimer</Button>
+            </>
+          }
+        >
+          {deleteModal && (
+            <div style={styles.deleteContent}>
+              <div style={styles.deleteIcon}>⚠️</div>
+              <p style={styles.deleteText}>
+                Êtes-vous sûr de vouloir supprimer la division <strong>{deleteModal.nom}</strong> ?
+              </p>
+              <p style={styles.deleteWarning}>
+                Cette action supprimera également tous les services associés.
+              </p>
+            </div>
+          )}
+        </Modal>
       </div>
-    </Layout>
+    </AdminLayout>
   );
 }
 
-const styles = {
+const styles: { [key: string]: React.CSSProperties } = {
   container: {
     maxWidth: '1400px',
     margin: '0 auto',
-    padding: '20px',
   },
-  header: {
+  pageHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '30px',
+    marginBottom: '24px',
   },
-  title: {
-    fontSize: '32px',
-    fontWeight: 'bold',
-    color: '#1f2937',
-  },
-  headerActions: {
-    display: 'flex',
-    gap: '10px',
-  },
-  addButton: {
-    padding: '10px 20px',
-    backgroundColor: '#10b981',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer',
-  },
-  backButton: {
-    padding: '10px 20px',
-    backgroundColor: '#6b7280',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer',
-  },
-  error: {
-    padding: '15px',
-    backgroundColor: '#fee2e2',
-    color: '#dc2626',
-    borderRadius: '8px',
-    marginBottom: '20px',
-  },
-  formContainer: {
-    backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    marginBottom: '30px',
-  },
-  formTitle: {
-    fontSize: '24px',
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: '20px',
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '20px',
-  },
-  formGroup: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '8px',
-  },
-  label: {
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#374151',
-  },
-  input: {
-    padding: '10px',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '14px',
-  },
-  formActions: {
-    display: 'flex',
-    gap: '10px',
-  },
-  submitButton: {
-    padding: '10px 20px',
-    backgroundColor: '#667eea',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer',
-  },
-  cancelButton: {
-    padding: '10px 20px',
-    backgroundColor: '#e5e7eb',
-    color: '#374151',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer',
-  },
-  tableContainer: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    overflow: 'auto',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse' as const,
-  },
-  tableHeaderRow: {
-    backgroundColor: '#f3f4f6',
-  },
-  th: {
-    padding: '15px',
-    textAlign: 'left' as const,
-    fontSize: '14px',
+  pageTitle: {
+    fontSize: '28px',
     fontWeight: '700',
-    color: '#374151',
-    borderBottom: '2px solid #e5e7eb',
+    color: '#1e293b',
+    margin: 0,
   },
-  tableRow: {
-    borderBottom: '1px solid #e5e7eb',
-  },
-  td: {
-    padding: '15px',
+  pageSubtitle: {
     fontSize: '14px',
-    color: '#1f2937',
+    color: '#64748b',
+    margin: '4px 0 0 0',
   },
-  codeBadge: {
-    padding: '4px 12px',
+  statsRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '24px',
+    padding: '20px 24px',
+    background: '#ffffff',
     borderRadius: '12px',
-    backgroundColor: '#dbeafe',
-    color: '#1e40af',
-    fontSize: '12px',
-    fontWeight: '600',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    marginBottom: '24px',
   },
-  noDirector: {
-    color: '#9ca3af',
-    fontStyle: 'italic' as const,
+  statItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: '28px',
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  statLabel: {
+    fontSize: '13px',
+    color: '#64748b',
+  },
+  statDivider: {
+    width: '1px',
+    height: '40px',
+    background: '#e2e8f0',
+  },
+  divisionCell: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  divisionIcon: {
+    width: '44px',
+    height: '44px',
+    borderRadius: '10px',
+    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '20px',
+  },
+  divisionInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  divisionName: {
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  directorCell: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  directorAvatar: {
+    width: '32px',
+    height: '32px',
+    borderRadius: '8px',
+    background: '#e2e8f0',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '13px',
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  muted: {
+    color: '#94a3b8',
+    fontStyle: 'italic',
+  },
+  countBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: '28px',
+    height: '28px',
+    padding: '0 8px',
+    background: '#f1f5f9',
+    borderRadius: '8px',
+    fontSize: '13px',
+    fontWeight: '600',
+    color: '#475569',
   },
   actions: {
     display: 'flex',
     gap: '8px',
   },
-  editButton: {
-    padding: '6px 12px',
-    backgroundColor: '#f59e0b',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    fontSize: '12px',
-    fontWeight: '600',
-    cursor: 'pointer',
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
   },
-  deleteButton: {
-    padding: '6px 12px',
-    backgroundColor: '#ef4444',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    fontSize: '12px',
-    fontWeight: '600',
-    cursor: 'pointer',
+  deleteContent: {
+    textAlign: 'center',
+    padding: '20px 0',
+  },
+  deleteIcon: {
+    fontSize: '48px',
+    marginBottom: '16px',
+  },
+  deleteText: {
+    fontSize: '15px',
+    color: '#475569',
+    marginBottom: '8px',
+  },
+  deleteWarning: {
+    fontSize: '13px',
+    color: '#ef4444',
+    fontWeight: '500',
   },
 };

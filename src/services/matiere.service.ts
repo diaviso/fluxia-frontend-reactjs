@@ -21,8 +21,8 @@ export interface CreateMatiereDto {
   unite: string;
   valeurUnitaire?: number;
   seuilAlerte?: number;
-  actif: boolean;
-  code: string;
+  actif?: boolean;
+  code?: string;
 }
 
 export const matiereService = {

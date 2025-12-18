@@ -100,6 +100,10 @@ export const BonCommandeDetail = () => {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '12px' }}>
+                <button onClick={() => navigate(`/bons-commande/${bonCommande.id}/reception`)} style={{...styles.downloadButton, background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)'}}>
+                  <span style={styles.downloadIcon}>📦</span>
+                  <span>Réception</span>
+                </button>
                 <button onClick={handleDownloadPDF} style={styles.downloadButton}>
                   <span style={styles.downloadIcon}>📥</span>
                   <span>Télécharger PDF</span>
@@ -158,11 +162,21 @@ export const BonCommandeDetail = () => {
                   <div style={styles.supplierIcon}>🏪</div>
                   <div>
                     <div style={styles.supplierName}>
-                      {bonCommande.fournisseur || 'Non spécifié'}
+                      {bonCommande.fournisseur?.raisonSociale || 'Non spécifié'}
                     </div>
+                    {bonCommande.fournisseur?.code && (
+                      <div style={styles.supplierCode}>
+                        Code: {bonCommande.fournisseur.code}
+                      </div>
+                    )}
+                    {bonCommande.fournisseur?.adresse && (
+                      <div style={styles.supplierAddress}>
+                        📍 {bonCommande.fournisseur.adresse}
+                      </div>
+                    )}
                     {bonCommande.adresseLivraison && (
                       <div style={styles.supplierAddress}>
-                        📍 {bonCommande.adresseLivraison}
+                        🚚 Livraison: {bonCommande.adresseLivraison}
                       </div>
                     )}
                   </div>

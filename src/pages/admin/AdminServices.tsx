@@ -1,32 +1,27 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Layout } from '../../components/Layout';
-import { useAuth } from '../../contexts/AuthContext';
+import { AdminLayout, DataTable, Modal, Button, Badge, FormField, Input, Select } from '../../components/admin';
 import { serviceService, type Service } from '../../services/service.service';
 import { divisionService, type Division } from '../../services/division.service';
+import type { Column } from '../../components/admin/DataTable';
 
 export default function AdminServices() {
-  const navigate = useNavigate();
-  const { user: currentUser } = useAuth();
   const [services, setServices] = useState<Service[]>([]);
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [deleteModal, setDeleteModal] = useState<Service | null>(null);
   const [formData, setFormData] = useState({
     nom: '',
     code: '',
-    divisionId: 0,
+    divisionId: '',
   });
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (currentUser?.role !== 'ADMIN') {
-      navigate('/expressions');
-      return;
-    }
     loadData();
-  }, [currentUser, navigate]);
+  }, []);
 
   const loadData = async () => {
     try {
@@ -36,371 +31,396 @@ export default function AdminServices() {
       ]);
       setServices(servicesData);
       setDivisions(divisionsData);
-    } catch (err) {
-      setError('Erreur lors du chargement des données');
-      console.error(err);
+    } catch (error) {
+      console.error('Erreur lors du chargement:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+  const validateForm = () => {
+    const newErrors: { [key: string]: string } = {};
+    if (!formData.nom.trim()) newErrors.nom = 'Le nom est requis';
+    if (!formData.code.trim()) newErrors.code = 'Le code est requis';
+    if (!formData.divisionId) newErrors.divisionId = 'La division est requise';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
-    if (!formData.divisionId) {
-      setError('Veuillez sélectionner une division');
-      return;
-    }
-
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+    
+    setSubmitting(true);
     try {
-      if (editingId) {
-        await serviceService.update(editingId, formData);
+      const data = {
+        nom: formData.nom,
+        code: formData.code,
+        divisionId: Number(formData.divisionId),
+      };
+
+      if (editingService) {
+        await serviceService.update(editingService.id, data);
       } else {
-        await serviceService.create(formData);
+        await serviceService.create(data);
       }
       await loadData();
-      resetForm();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Erreur lors de l\'enregistrement');
+      closeModal();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Erreur lors de l\'enregistrement');
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleEdit = (service: Service) => {
-    setEditingId(service.id);
+  const handleDelete = async () => {
+    if (!deleteModal) return;
+    try {
+      await serviceService.delete(deleteModal.id);
+      await loadData();
+      setDeleteModal(null);
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Erreur lors de la suppression');
+    }
+  };
+
+  const openCreateModal = () => {
+    setEditingService(null);
+    setFormData({ nom: '', code: '', divisionId: '' });
+    setErrors({});
+    setShowModal(true);
+  };
+
+  const openEditModal = (service: Service) => {
+    setEditingService(service);
     setFormData({
       nom: service.nom,
       code: service.code,
-      divisionId: service.divisionId,
+      divisionId: service.divisionId.toString(),
     });
-    setShowForm(true);
+    setErrors({});
+    setShowModal(true);
   };
 
-  const handleDelete = async (id: number, nom: string) => {
-    if (!window.confirm(`Voulez-vous vraiment supprimer le service "${nom}" ?`)) {
-      return;
-    }
-
-    try {
-      await serviceService.delete(id);
-      await loadData();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Erreur lors de la suppression');
-    }
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingService(null);
+    setFormData({ nom: '', code: '', divisionId: '' });
+    setErrors({});
   };
 
-  const resetForm = () => {
-    setFormData({ nom: '', code: '', divisionId: 0 });
-    setEditingId(null);
-    setShowForm(false);
-    setError('');
-  };
-
-  if (loading) {
-    return (
-      <Layout>
-        <div style={styles.container}>
-          <p>Chargement...</p>
+  const columns: Column<Service>[] = [
+    {
+      key: 'nom',
+      header: 'Service',
+      sortable: true,
+      render: (service) => (
+        <div style={styles.serviceCell}>
+          <div style={styles.serviceIcon}>🔧</div>
+          <div style={styles.serviceInfo}>
+            <span style={styles.serviceName}>{service.nom}</span>
+            <Badge variant="info" size="sm">{service.code}</Badge>
+          </div>
         </div>
-      </Layout>
-    );
-  }
+      ),
+    },
+    {
+      key: 'division.nom',
+      header: 'Division',
+      sortable: true,
+      render: (service) => service.division ? (
+        <div style={styles.divisionCell}>
+          <span style={styles.divisionBadge}>🏢 {service.division.nom}</span>
+        </div>
+      ) : <span style={styles.muted}>-</span>,
+    },
+    {
+      key: '_count.expressions',
+      header: 'Expressions',
+      sortable: true,
+      render: (service) => (
+        <span style={styles.countBadge}>{service._count?.expressions || 0}</span>
+      ),
+    },
+  ];
+
+  const renderActions = (service: Service) => (
+    <div style={styles.actions}>
+      <Button size="sm" variant="secondary" onClick={() => openEditModal(service)}>
+        ✏️ Modifier
+      </Button>
+      {service._count?.expressions === 0 && (
+        <Button size="sm" variant="danger" onClick={() => setDeleteModal(service)}>
+          🗑️ Supprimer
+        </Button>
+      )}
+    </div>
+  );
+
+  // Group services by division for stats
+  const servicesByDivision = divisions.map(d => ({
+    division: d.nom,
+    count: services.filter(s => s.divisionId === d.id).length,
+  })).filter(d => d.count > 0);
 
   return (
-    <Layout>
+    <AdminLayout>
       <div style={styles.container}>
-        <div style={styles.header}>
-          <h1 style={styles.title}>🔧 Gestion des Services</h1>
-          <div style={styles.headerActions}>
-            <button
-              style={styles.addButton}
-              onClick={() => setShowForm(!showForm)}
-            >
-              {showForm ? '✕ Annuler' : '+ Nouveau Service'}
-            </button>
-            <button style={styles.backButton} onClick={() => navigate('/admin')}>
-              ← Retour
-            </button>
+        {/* Page Header */}
+        <div style={styles.pageHeader}>
+          <div>
+            <h1 style={styles.pageTitle}>Gestion des Services</h1>
+            <p style={styles.pageSubtitle}>Gérez les services au sein des divisions</p>
           </div>
+          <Button variant="success" icon="+" onClick={openCreateModal}>
+            Nouveau Service
+          </Button>
         </div>
 
-        {error && <div style={styles.error}>{error}</div>}
-
-        {showForm && (
-          <div style={styles.formContainer}>
-            <h2 style={styles.formTitle}>
-              {editingId ? 'Modifier le Service' : 'Nouveau Service'}
-            </h2>
-            <form onSubmit={handleSubmit} style={styles.form}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Nom *</label>
-                <input
-                  type="text"
-                  value={formData.nom}
-                  onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
-                  style={styles.input}
-                  required
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Code *</label>
-                <input
-                  type="text"
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                  style={styles.input}
-                  required
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Division *</label>
-                <select
-                  value={formData.divisionId || ''}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    divisionId: Number(e.target.value)
-                  })}
-                  style={styles.input}
-                  required
-                >
-                  <option value="">Sélectionner une division</option>
-                  {divisions.map((division) => (
-                    <option key={division.id} value={division.id}>
-                      {division.nom} ({division.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={styles.formActions}>
-                <button type="submit" style={styles.submitButton}>
-                  {editingId ? 'Modifier' : 'Créer'}
-                </button>
-                <button type="button" style={styles.cancelButton} onClick={resetForm}>
-                  Annuler
-                </button>
-              </div>
-            </form>
+        {/* Stats */}
+        <div style={styles.statsRow}>
+          <div style={styles.statItem}>
+            <span style={styles.statValue}>{services.length}</span>
+            <span style={styles.statLabel}>Total Services</span>
           </div>
-        )}
-
-        <div style={styles.tableContainer}>
-          <table style={styles.table}>
-            <thead>
-              <tr style={styles.tableHeaderRow}>
-                <th style={styles.th}>Nom</th>
-                <th style={styles.th}>Code</th>
-                <th style={styles.th}>Division</th>
-                <th style={styles.th}>Expressions</th>
-                <th style={styles.th}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {services.map((service) => (
-                <tr key={service.id} style={styles.tableRow}>
-                  <td style={styles.td}>{service.nom}</td>
-                  <td style={styles.td}>
-                    <span style={styles.codeBadge}>{service.code}</span>
-                  </td>
-                  <td style={styles.td}>
-                    {service.division ? service.division.nom : '-'}
-                  </td>
-                  <td style={styles.td}>{service._count?.expressions || 0}</td>
-                  <td style={styles.td}>
-                    <div style={styles.actions}>
-                      <button
-                        style={styles.editButton}
-                        onClick={() => handleEdit(service)}
-                      >
-                        ✏️ Modifier
-                      </button>
-                      {service._count?.expressions === 0 && (
-                        <button
-                          style={styles.deleteButton}
-                          onClick={() => handleDelete(service.id, service.nom)}
-                        >
-                          🗑️ Supprimer
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={styles.statDivider}></div>
+          <div style={styles.statItem}>
+            <span style={{ ...styles.statValue, color: '#6366f1' }}>{divisions.length}</span>
+            <span style={styles.statLabel}>Divisions</span>
+          </div>
+          {servicesByDivision.slice(0, 3).map((item, index) => (
+            <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+              <div style={styles.statDivider}></div>
+              <div style={styles.statItem}>
+                <span style={{ ...styles.statValue, color: '#10b981', fontSize: '20px' }}>{item.count}</span>
+                <span style={styles.statLabel}>{item.division}</span>
+              </div>
+            </div>
+          ))}
         </div>
+
+        {/* Data Table */}
+        <DataTable
+          data={services}
+          columns={columns}
+          loading={loading}
+          searchPlaceholder="Rechercher un service..."
+          searchKeys={['nom', 'code', 'division.nom']}
+          actions={renderActions}
+          emptyMessage="Aucun service trouvé"
+        />
+
+        {/* Create/Edit Modal */}
+        <Modal
+          isOpen={showModal}
+          onClose={closeModal}
+          title={editingService ? 'Modifier le service' : 'Nouveau service'}
+          footer={
+            <>
+              <Button variant="secondary" onClick={closeModal}>Annuler</Button>
+              <Button 
+                variant="primary" 
+                onClick={handleSubmit}
+                loading={submitting}
+              >
+                {editingService ? 'Modifier' : 'Créer'}
+              </Button>
+            </>
+          }
+        >
+          <div style={styles.form}>
+            <FormField label="Nom du service" required error={errors.nom}>
+              <Input
+                value={formData.nom}
+                onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                placeholder="Ex: Service Développement"
+                hasError={!!errors.nom}
+              />
+            </FormField>
+
+            <FormField label="Code" required error={errors.code} hint="Code unique pour identifier le service">
+              <Input
+                value={formData.code}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                placeholder="Ex: DEV"
+                hasError={!!errors.code}
+              />
+            </FormField>
+
+            <FormField label="Division" required error={errors.divisionId}>
+              <Select
+                value={formData.divisionId}
+                onChange={(e) => setFormData({ ...formData, divisionId: e.target.value })}
+                placeholder="Sélectionner une division"
+                hasError={!!errors.divisionId}
+                options={divisions.map((division) => ({
+                  value: division.id.toString(),
+                  label: `${division.nom} (${division.code})`,
+                }))}
+              />
+            </FormField>
+          </div>
+        </Modal>
+
+        {/* Delete Modal */}
+        <Modal
+          isOpen={!!deleteModal}
+          onClose={() => setDeleteModal(null)}
+          title="Confirmer la suppression"
+          size="sm"
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setDeleteModal(null)}>Annuler</Button>
+              <Button variant="danger" onClick={handleDelete}>Supprimer</Button>
+            </>
+          }
+        >
+          {deleteModal && (
+            <div style={styles.deleteContent}>
+              <div style={styles.deleteIcon}>⚠️</div>
+              <p style={styles.deleteText}>
+                Êtes-vous sûr de vouloir supprimer le service <strong>{deleteModal.nom}</strong> ?
+              </p>
+              <p style={styles.deleteWarning}>Cette action est irréversible.</p>
+            </div>
+          )}
+        </Modal>
       </div>
-    </Layout>
+    </AdminLayout>
   );
 }
 
-const styles = {
+const styles: { [key: string]: React.CSSProperties } = {
   container: {
     maxWidth: '1400px',
     margin: '0 auto',
-    padding: '20px',
   },
-  header: {
+  pageHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '30px',
+    marginBottom: '24px',
   },
-  title: {
-    fontSize: '32px',
-    fontWeight: 'bold',
-    color: '#1f2937',
-  },
-  headerActions: {
-    display: 'flex',
-    gap: '10px',
-  },
-  addButton: {
-    padding: '10px 20px',
-    backgroundColor: '#10b981',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer',
-  },
-  backButton: {
-    padding: '10px 20px',
-    backgroundColor: '#6b7280',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer',
-  },
-  error: {
-    padding: '15px',
-    backgroundColor: '#fee2e2',
-    color: '#dc2626',
-    borderRadius: '8px',
-    marginBottom: '20px',
-  },
-  formContainer: {
-    backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    marginBottom: '30px',
-  },
-  formTitle: {
-    fontSize: '24px',
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: '20px',
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '20px',
-  },
-  formGroup: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '8px',
-  },
-  label: {
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#374151',
-  },
-  input: {
-    padding: '10px',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '14px',
-  },
-  formActions: {
-    display: 'flex',
-    gap: '10px',
-  },
-  submitButton: {
-    padding: '10px 20px',
-    backgroundColor: '#667eea',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer',
-  },
-  cancelButton: {
-    padding: '10px 20px',
-    backgroundColor: '#e5e7eb',
-    color: '#374151',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer',
-  },
-  tableContainer: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    overflow: 'auto',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse' as const,
-  },
-  tableHeaderRow: {
-    backgroundColor: '#f3f4f6',
-  },
-  th: {
-    padding: '15px',
-    textAlign: 'left' as const,
-    fontSize: '14px',
+  pageTitle: {
+    fontSize: '28px',
     fontWeight: '700',
-    color: '#374151',
-    borderBottom: '2px solid #e5e7eb',
+    color: '#1e293b',
+    margin: 0,
   },
-  tableRow: {
-    borderBottom: '1px solid #e5e7eb',
-  },
-  td: {
-    padding: '15px',
+  pageSubtitle: {
     fontSize: '14px',
-    color: '#1f2937',
+    color: '#64748b',
+    margin: '4px 0 0 0',
   },
-  codeBadge: {
-    padding: '4px 12px',
+  statsRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '24px',
+    padding: '20px 24px',
+    background: '#ffffff',
     borderRadius: '12px',
-    backgroundColor: '#dbeafe',
-    color: '#1e40af',
-    fontSize: '12px',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    marginBottom: '24px',
+    flexWrap: 'wrap',
+  },
+  statItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: '28px',
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  statLabel: {
+    fontSize: '13px',
+    color: '#64748b',
+    textAlign: 'center',
+  },
+  statDivider: {
+    width: '1px',
+    height: '40px',
+    background: '#e2e8f0',
+  },
+  serviceCell: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  serviceIcon: {
+    width: '44px',
+    height: '44px',
+    borderRadius: '10px',
+    background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '20px',
+  },
+  serviceInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  serviceName: {
+    fontSize: '14px',
     fontWeight: '600',
+    color: '#1e293b',
+  },
+  divisionCell: {
+    display: 'flex',
+    alignItems: 'center',
+  },
+  divisionBadge: {
+    padding: '6px 12px',
+    background: '#ede9fe',
+    borderRadius: '8px',
+    fontSize: '13px',
+    color: '#5b21b6',
+    fontWeight: '500',
+  },
+  muted: {
+    color: '#94a3b8',
+    fontStyle: 'italic',
+  },
+  countBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: '28px',
+    height: '28px',
+    padding: '0 8px',
+    background: '#f1f5f9',
+    borderRadius: '8px',
+    fontSize: '13px',
+    fontWeight: '600',
+    color: '#475569',
   },
   actions: {
     display: 'flex',
     gap: '8px',
   },
-  editButton: {
-    padding: '6px 12px',
-    backgroundColor: '#f59e0b',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    fontSize: '12px',
-    fontWeight: '600',
-    cursor: 'pointer',
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
   },
-  deleteButton: {
-    padding: '6px 12px',
-    backgroundColor: '#ef4444',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    fontSize: '12px',
-    fontWeight: '600',
-    cursor: 'pointer',
+  deleteContent: {
+    textAlign: 'center',
+    padding: '20px 0',
+  },
+  deleteIcon: {
+    fontSize: '48px',
+    marginBottom: '16px',
+  },
+  deleteText: {
+    fontSize: '15px',
+    color: '#475569',
+    marginBottom: '8px',
+  },
+  deleteWarning: {
+    fontSize: '13px',
+    color: '#ef4444',
+    fontWeight: '500',
   },
 };

@@ -1,318 +1,477 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Layout } from '../../components/Layout';
-import { useAuth } from '../../contexts/AuthContext';
+import { AdminLayout, DataTable, Modal, Button, Badge, FormField, Select } from '../../components/admin';
 import { adminService, type User } from '../../services/admin.service';
+import type { Column } from '../../components/admin/DataTable';
 
 export default function AdminUsers() {
-  const navigate = useNavigate();
-  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [modalType, setModalType] = useState<'role' | 'delete' | null>(null);
+  const [newRole, setNewRole] = useState('');
 
   useEffect(() => {
-    if (currentUser?.role !== 'ADMIN') {
-      navigate('/expressions');
-      return;
-    }
-    loadUsers();
-  }, [currentUser, navigate]);
+    loadData();
+  }, []);
 
-  const loadUsers = async () => {
+  const loadData = async () => {
     try {
-      const data = await adminService.getAllUsers();
-      setUsers(data);
-    } catch (err) {
-      setError('Erreur lors du chargement des utilisateurs');
-      console.error(err);
+      const usersData = await adminService.getAllUsers();
+      setUsers(usersData);
+    } catch (error) {
+      console.error('Erreur lors du chargement:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleToggleStatus = async (userId: number, currentStatus: boolean) => {
-    if (!window.confirm(`Voulez-vous ${currentStatus ? 'désactiver' : 'activer'} cet utilisateur ?`)) {
+  const handleToggleStatus = async (user: User) => {
+    if (!window.confirm(`${user.actif ? 'Désactiver' : 'Activer'} ${user.prenom} ${user.nom} ?`)) {
       return;
     }
-
     try {
-      await adminService.toggleUserStatus(userId, !currentStatus);
-      await loadUsers();
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Erreur lors de la modification du statut');
+      await adminService.toggleUserStatus(user.id, !user.actif);
+      await loadData();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Erreur lors de la modification');
     }
   };
 
-  const handleChangeRole = async (userId: number, currentRole: string, userName: string) => {
-    const newRole = prompt(
-      `Changer le rôle de "${userName}" ?\n\nRôle actuel : ${currentRole}\n\nChoisissez parmi :\nAGENT, VALIDATEUR, ADMIN`,
-      currentRole
-    );
-
-    if (!newRole || newRole === currentRole) return;
-
-    const validRoles = ['AGENT', 'VALIDATEUR', 'ADMIN'];
-    if (!validRoles.includes(newRole.toUpperCase())) {
-      alert('Rôle invalide. Choisissez parmi : AGENT, VALIDATEUR, ADMIN');
-      return;
-    }
-
+  const handleChangeRole = async () => {
+    if (!selectedUser || !newRole) return;
     try {
-      await adminService.updateUserRole(userId, newRole.toUpperCase() as any);
-      await loadUsers();
-      alert('Rôle modifié avec succès');
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Erreur lors de la modification du rôle');
+      await adminService.updateUserRole(selectedUser.id, newRole as any);
+      await loadData();
+      closeModal();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Erreur lors de la modification du rôle');
     }
   };
 
-  const handleDeleteUser = async (userId: number, userName: string) => {
-    if (!window.confirm(`Voulez-vous vraiment supprimer l'utilisateur "${userName}" ?\n\nCette action est irréversible et ne peut être effectuée que si l'utilisateur n'a aucune expression de besoin.`)) {
-      return;
-    }
-
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
     try {
-      await adminService.deleteUser(userId);
-      await loadUsers();
-      alert('Utilisateur supprimé avec succès');
-    } catch (err: any) {
-      alert(err.response?.data?.message || 'Erreur lors de la suppression');
+      await adminService.deleteUser(selectedUser.id);
+      await loadData();
+      closeModal();
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Erreur lors de la suppression');
     }
   };
 
-  const getRoleBadgeColor = (role: string) => {
-    switch (role) {
-      case 'ADMIN': return '#dc2626';
-      case 'VALIDATEUR': return '#ea580c';
-      case 'AGENT': return '#2563eb';
-      default: return '#6b7280';
-    }
+  const openRoleModal = (user: User) => {
+    setSelectedUser(user);
+    setNewRole(user.role);
+    setModalType('role');
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div style={styles.container}>
-          <p>Chargement...</p>
+  const openDeleteModal = (user: User) => {
+    setSelectedUser(user);
+    setModalType('delete');
+  };
+
+  const closeModal = () => {
+    setSelectedUser(null);
+    setModalType(null);
+    setNewRole('');
+  };
+
+  const getRoleBadge = (role: string) => {
+    const variants: { [key: string]: 'danger' | 'warning' | 'info' } = {
+      ADMIN: 'danger',
+      VALIDATEUR: 'warning',
+      AGENT: 'info',
+    };
+    return <Badge variant={variants[role] || 'default'}>{role}</Badge>;
+  };
+
+  const columns: Column<User>[] = [
+    {
+      key: 'user',
+      header: 'Utilisateur',
+      render: (user) => (
+        <div style={styles.userCell}>
+          {user.photo ? (
+            <img src={user.photo} alt="" style={styles.avatar} />
+          ) : (
+            <div style={styles.avatarPlaceholder}>
+              {user.prenom?.[0] || user.nom?.[0] || '?'}
+            </div>
+          )}
+          <div style={styles.userInfo}>
+            <span style={styles.userName}>{user.prenom} {user.nom}</span>
+            <span style={styles.userEmail}>{user.email}</span>
+          </div>
         </div>
-      </Layout>
-    );
-  }
+      ),
+    },
+    {
+      key: 'role',
+      header: 'Rôle',
+      sortable: true,
+      render: (user) => getRoleBadge(user.role),
+    },
+    {
+      key: 'division.nom',
+      header: 'Division',
+      sortable: true,
+      render: (user) => user.division?.nom || <span style={styles.muted}>Non assigné</span>,
+    },
+    {
+      key: 'divisionDirigee',
+      header: 'Directeur de',
+      render: (user) => user.divisionDirigee ? (
+        <Badge variant="purple">🏢 {user.divisionDirigee.nom}</Badge>
+      ) : <span style={styles.muted}>-</span>,
+    },
+    {
+      key: '_count.expressionsDeBesoin',
+      header: 'Expressions',
+      sortable: true,
+      render: (user) => (
+        <span style={styles.countBadge}>{user._count?.expressionsDeBesoin || 0}</span>
+      ),
+    },
+    {
+      key: 'actif',
+      header: 'Statut',
+      sortable: true,
+      render: (user) => (
+        <Badge variant={user.actif ? 'success' : 'danger'}>
+          {user.actif ? '✓ Actif' : '✗ Inactif'}
+        </Badge>
+      ),
+    },
+  ];
+
+  const renderActions = (user: User) => (
+    <div style={styles.actions}>
+      <Button
+        size="sm"
+        variant="secondary"
+        onClick={() => openRoleModal(user)}
+      >
+        Rôle
+      </Button>
+      <Button
+        size="sm"
+        variant={user.actif ? 'warning' : 'success'}
+        onClick={() => handleToggleStatus(user)}
+      >
+        {user.actif ? 'Désactiver' : 'Activer'}
+      </Button>
+      {user._count?.expressionsDeBesoin === 0 && !user.divisionDirigee && (
+        <Button
+          size="sm"
+          variant="danger"
+          onClick={() => openDeleteModal(user)}
+        >
+          Supprimer
+        </Button>
+      )}
+    </div>
+  );
+
+  const activeUsers = users.filter(u => u.actif).length;
+  const adminCount = users.filter(u => u.role === 'ADMIN').length;
+  const validateurCount = users.filter(u => u.role === 'VALIDATEUR').length;
 
   return (
-    <Layout>
+    <AdminLayout>
       <div style={styles.container}>
-        <div style={styles.header}>
-          <h1 style={styles.title}>👥 Gestion des Utilisateurs</h1>
-          <button style={styles.backButton} onClick={() => navigate('/admin')}>
-            ← Retour au Dashboard
-          </button>
+        {/* Page Header */}
+        <div style={styles.pageHeader}>
+          <div>
+            <h1 style={styles.pageTitle}>Gestion des Utilisateurs</h1>
+            <p style={styles.pageSubtitle}>Gérez les comptes utilisateurs et leurs permissions</p>
+          </div>
         </div>
 
-        {error && <div style={styles.error}>{error}</div>}
-
-        <div style={styles.tableContainer}>
-          <table style={styles.table}>
-            <thead>
-              <tr style={styles.tableHeaderRow}>
-                <th style={styles.th}>Nom</th>
-                <th style={styles.th}>Email</th>
-                <th style={styles.th}>Rôle</th>
-                <th style={styles.th}>Division</th>
-                <th style={styles.th}>Directeur de</th>
-                <th style={styles.th}>Expressions</th>
-                <th style={styles.th}>Statut</th>
-                <th style={styles.th}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((user) => (
-                <tr key={user.id} style={styles.tableRow}>
-                  <td style={styles.td}>
-                    {user.nom} {user.prenom}
-                  </td>
-                  <td style={styles.td}>{user.email}</td>
-                  <td style={styles.td}>
-                    <span style={{
-                      ...styles.badge,
-                      backgroundColor: getRoleBadgeColor(user.role),
-                    }}>
-                      {user.role}
-                    </span>
-                  </td>
-                  <td style={styles.td}>
-                    {user.division ? user.division.nom : '-'}
-                  </td>
-                  <td style={styles.td}>
-                    {user.divisionDirigee ? (
-                      <span style={styles.directorBadge}>
-                        🏢 {user.divisionDirigee.nom}
-                      </span>
-                    ) : '-'}
-                  </td>
-                  <td style={styles.td}>
-                    {user._count?.expressionsDeBesoin || 0}
-                  </td>
-                  <td style={styles.td}>
-                    <span style={{
-                      ...styles.statusBadge,
-                      backgroundColor: user.actif ? '#10b981' : '#ef4444',
-                    }}>
-                      {user.actif ? '✓ Actif' : '✗ Inactif'}
-                    </span>
-                  </td>
-                  <td style={styles.td}>
-                    <div style={styles.actions}>
-                      <button
-                        style={{
-                          ...styles.actionButton,
-                          backgroundColor: '#8b5cf6',
-                        }}
-                        onClick={() => handleChangeRole(user.id, user.role, `${user.nom} ${user.prenom}`)}
-                      >
-                        Changer rôle
-                      </button>
-                      <button
-                        style={{
-                          ...styles.actionButton,
-                          backgroundColor: user.actif ? '#f59e0b' : '#10b981',
-                        }}
-                        onClick={() => handleToggleStatus(user.id, user.actif)}
-                      >
-                        {user.actif ? 'Désactiver' : 'Activer'}
-                      </button>
-                      {user._count?.expressionsDeBesoin === 0 && !user.divisionDirigee && (
-                        <button
-                          style={{
-                            ...styles.actionButton,
-                            backgroundColor: '#ef4444',
-                          }}
-                          onClick={() => handleDeleteUser(user.id, `${user.nom} ${user.prenom}`)}
-                        >
-                          Supprimer
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Stats */}
+        <div style={styles.statsRow}>
+          <div style={styles.statItem}>
+            <span style={styles.statValue}>{users.length}</span>
+            <span style={styles.statLabel}>Total</span>
+          </div>
+          <div style={styles.statDivider}></div>
+          <div style={styles.statItem}>
+            <span style={{ ...styles.statValue, color: '#10b981' }}>{activeUsers}</span>
+            <span style={styles.statLabel}>Actifs</span>
+          </div>
+          <div style={styles.statDivider}></div>
+          <div style={styles.statItem}>
+            <span style={{ ...styles.statValue, color: '#ef4444' }}>{adminCount}</span>
+            <span style={styles.statLabel}>Admins</span>
+          </div>
+          <div style={styles.statDivider}></div>
+          <div style={styles.statItem}>
+            <span style={{ ...styles.statValue, color: '#f59e0b' }}>{validateurCount}</span>
+            <span style={styles.statLabel}>Validateurs</span>
+          </div>
         </div>
 
-        <div style={styles.info}>
-          <p><strong>Note :</strong> Un utilisateur ne peut être supprimé que s'il n'a aucune expression de besoin et n'est pas directeur d'une division.</p>
+        {/* Data Table */}
+        <DataTable
+          data={users}
+          columns={columns}
+          loading={loading}
+          searchPlaceholder="Rechercher un utilisateur..."
+          searchKeys={['nom', 'prenom', 'email', 'role']}
+          actions={renderActions}
+          emptyMessage="Aucun utilisateur trouvé"
+        />
+
+        {/* Info */}
+        <div style={styles.infoBox}>
+          <span style={styles.infoIcon}>ℹ️</span>
+          <span>Un utilisateur ne peut être supprimé que s'il n'a aucune expression de besoin et n'est pas directeur d'une division.</span>
         </div>
+
+        {/* Role Modal */}
+        <Modal
+          isOpen={modalType === 'role'}
+          onClose={closeModal}
+          title="Modifier le rôle"
+          footer={
+            <>
+              <Button variant="secondary" onClick={closeModal}>Annuler</Button>
+              <Button variant="primary" onClick={handleChangeRole}>Enregistrer</Button>
+            </>
+          }
+        >
+          {selectedUser && (
+            <div style={styles.modalContent}>
+              <div style={styles.userPreview}>
+                {selectedUser.photo ? (
+                  <img src={selectedUser.photo} alt="" style={styles.previewAvatar} />
+                ) : (
+                  <div style={styles.previewAvatarPlaceholder}>
+                    {selectedUser.prenom?.[0] || selectedUser.nom?.[0] || '?'}
+                  </div>
+                )}
+                <div>
+                  <div style={styles.previewName}>{selectedUser.prenom} {selectedUser.nom}</div>
+                  <div style={styles.previewEmail}>{selectedUser.email}</div>
+                </div>
+              </div>
+              <FormField label="Nouveau rôle" required>
+                <Select
+                  value={newRole}
+                  onChange={(e) => setNewRole(e.target.value)}
+                  options={[
+                    { value: 'AGENT', label: 'Agent - Peut créer des expressions' },
+                    { value: 'VALIDATEUR', label: 'Validateur - Peut valider les expressions' },
+                    { value: 'ADMIN', label: 'Administrateur - Accès complet' },
+                  ]}
+                />
+              </FormField>
+            </div>
+          )}
+        </Modal>
+
+        {/* Delete Modal */}
+        <Modal
+          isOpen={modalType === 'delete'}
+          onClose={closeModal}
+          title="Confirmer la suppression"
+          size="sm"
+          footer={
+            <>
+              <Button variant="secondary" onClick={closeModal}>Annuler</Button>
+              <Button variant="danger" onClick={handleDeleteUser}>Supprimer</Button>
+            </>
+          }
+        >
+          {selectedUser && (
+            <div style={styles.deleteContent}>
+              <div style={styles.deleteIcon}>⚠️</div>
+              <p style={styles.deleteText}>
+                Êtes-vous sûr de vouloir supprimer l'utilisateur <strong>{selectedUser.prenom} {selectedUser.nom}</strong> ?
+              </p>
+              <p style={styles.deleteWarning}>Cette action est irréversible.</p>
+            </div>
+          )}
+        </Modal>
       </div>
-    </Layout>
+    </AdminLayout>
   );
 }
 
-const styles = {
+const styles: { [key: string]: React.CSSProperties } = {
   container: {
     maxWidth: '1400px',
     margin: '0 auto',
-    padding: '20px',
   },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '30px',
+  pageHeader: {
+    marginBottom: '24px',
   },
-  title: {
-    fontSize: '32px',
-    fontWeight: 'bold',
-    color: '#1f2937',
-  },
-  backButton: {
-    padding: '10px 20px',
-    backgroundColor: '#6b7280',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer',
-  },
-  error: {
-    padding: '15px',
-    backgroundColor: '#fee2e2',
-    color: '#dc2626',
-    borderRadius: '8px',
-    marginBottom: '20px',
-  },
-  tableContainer: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    overflow: 'auto',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse' as const,
-  },
-  tableHeaderRow: {
-    backgroundColor: '#f3f4f6',
-  },
-  th: {
-    padding: '15px',
-    textAlign: 'left' as const,
-    fontSize: '14px',
+  pageTitle: {
+    fontSize: '28px',
     fontWeight: '700',
-    color: '#374151',
-    borderBottom: '2px solid #e5e7eb',
+    color: '#1e293b',
+    margin: 0,
   },
-  tableRow: {
-    borderBottom: '1px solid #e5e7eb',
-  },
-  td: {
-    padding: '15px',
+  pageSubtitle: {
     fontSize: '14px',
-    color: '#1f2937',
+    color: '#64748b',
+    margin: '4px 0 0 0',
   },
-  badge: {
-    padding: '4px 12px',
+  statsRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '24px',
+    padding: '20px 24px',
+    background: '#ffffff',
     borderRadius: '12px',
-    color: 'white',
-    fontSize: '12px',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    marginBottom: '24px',
+  },
+  statItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: '28px',
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  statLabel: {
+    fontSize: '13px',
+    color: '#64748b',
+  },
+  statDivider: {
+    width: '1px',
+    height: '40px',
+    background: '#e2e8f0',
+  },
+  userCell: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  avatar: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '10px',
+    objectFit: 'cover',
+  },
+  avatarPlaceholder: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '10px',
+    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#ffffff',
+    fontSize: '16px',
     fontWeight: '600',
   },
-  directorBadge: {
-    padding: '4px 12px',
-    borderRadius: '12px',
-    backgroundColor: '#8b5cf6',
-    color: 'white',
-    fontSize: '12px',
-    fontWeight: '600',
+  userInfo: {
+    display: 'flex',
+    flexDirection: 'column',
   },
-  statusBadge: {
-    padding: '4px 12px',
-    borderRadius: '12px',
-    color: 'white',
-    fontSize: '12px',
+  userName: {
+    fontSize: '14px',
     fontWeight: '600',
+    color: '#1e293b',
+  },
+  userEmail: {
+    fontSize: '12px',
+    color: '#64748b',
+  },
+  muted: {
+    color: '#94a3b8',
+    fontStyle: 'italic',
+  },
+  countBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: '28px',
+    height: '28px',
+    padding: '0 8px',
+    background: '#f1f5f9',
+    borderRadius: '8px',
+    fontSize: '13px',
+    fontWeight: '600',
+    color: '#475569',
   },
   actions: {
     display: 'flex',
     gap: '8px',
   },
-  actionButton: {
-    padding: '6px 12px',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    fontSize: '12px',
-    fontWeight: '600',
-    cursor: 'pointer',
-  },
-  info: {
+  infoBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '16px 20px',
+    background: '#eff6ff',
+    borderRadius: '10px',
     marginTop: '20px',
-    padding: '15px',
-    backgroundColor: '#eff6ff',
-    borderRadius: '8px',
-    color: '#1e40af',
     fontSize: '14px',
+    color: '#1e40af',
+  },
+  infoIcon: {
+    fontSize: '18px',
+  },
+  modalContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
+  },
+  userPreview: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    padding: '16px',
+    background: '#f8fafc',
+    borderRadius: '12px',
+  },
+  previewAvatar: {
+    width: '56px',
+    height: '56px',
+    borderRadius: '12px',
+    objectFit: 'cover',
+  },
+  previewAvatarPlaceholder: {
+    width: '56px',
+    height: '56px',
+    borderRadius: '12px',
+    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#ffffff',
+    fontSize: '20px',
+    fontWeight: '600',
+  },
+  previewName: {
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  previewEmail: {
+    fontSize: '13px',
+    color: '#64748b',
+  },
+  deleteContent: {
+    textAlign: 'center',
+    padding: '20px 0',
+  },
+  deleteIcon: {
+    fontSize: '48px',
+    marginBottom: '16px',
+  },
+  deleteText: {
+    fontSize: '15px',
+    color: '#475569',
+    marginBottom: '8px',
+  },
+  deleteWarning: {
+    fontSize: '13px',
+    color: '#ef4444',
+    fontWeight: '500',
   },
 };

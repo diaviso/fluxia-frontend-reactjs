@@ -1,16 +1,46 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Layout } from '../../components/Layout';
-import { useAuth } from '../../contexts/AuthContext';
+import { AdminLayout, DataTable, Modal, Button, Badge, FormField, Input, Select, Checkbox } from '../../components/admin';
 import { matiereService, type Matiere } from '../../services/matiere.service';
+import type { Column } from '../../components/admin/DataTable';
+
+const TYPES = [
+  { value: 'CONSOMMABLE', label: 'Consommable' },
+  { value: 'DURABLE', label: 'Durable' },
+];
+
+const CATEGORIES = [
+  { value: 'INFORMATIQUE', label: 'Informatique' },
+  { value: 'MOBILIER', label: 'Mobilier' },
+  { value: 'FOURNITURE', label: 'Fourniture' },
+  { value: 'VEHICULE', label: 'Véhicule' },
+  { value: 'EQUIPEMENT', label: 'Équipement' },
+  { value: 'MATERIEL_MEDICAL', label: 'Matériel Médical' },
+  { value: 'PRODUIT_ENTRETIEN', label: 'Produit d\'Entretien' },
+  { value: 'PAPETERIE', label: 'Papeterie' },
+  { value: 'AUTRE', label: 'Autre' },
+];
+
+const UNITES = [
+  { value: 'PIECE', label: 'Pièce' },
+  { value: 'LOT', label: 'Lot' },
+  { value: 'BOITE', label: 'Boîte' },
+  { value: 'PAQUET', label: 'Paquet' },
+  { value: 'KG', label: 'Kilogramme' },
+  { value: 'GRAMME', label: 'Gramme' },
+  { value: 'LITRE', label: 'Litre' },
+  { value: 'MILLILITRE', label: 'Millilitre' },
+  { value: 'METRE', label: 'Mètre' },
+  { value: 'METRE_CARRE', label: 'Mètre Carré' },
+  { value: 'CARTON', label: 'Carton' },
+  { value: 'PALETTE', label: 'Palette' },
+];
 
 export default function AdminMatieres() {
-  const navigate = useNavigate();
-  const { user } = useAuth();
   const [matieres, setMatieres] = useState<Matiere[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const [editingMatiere, setEditingMatiere] = useState<Matiere | null>(null);
+  const [deleteModal, setDeleteModal] = useState<Matiere | null>(null);
   const [formData, setFormData] = useState({
     code: '',
     designation: '',
@@ -21,33 +51,45 @@ export default function AdminMatieres() {
     seuilAlerte: '',
     actif: true,
   });
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (user?.role !== 'ADMIN') {
-      navigate('/dashboard');
-      return;
-    }
-    loadMatieres();
-  }, [user, navigate]);
+    loadData();
+  }, []);
 
-  const loadMatieres = async () => {
+  const loadData = async () => {
     try {
       const data = await matiereService.getAll();
       setMatieres(data);
     } catch (error) {
-      console.error('Erreur chargement matières:', error);
+      console.error('Erreur lors du chargement:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const validateForm = () => {
+    const newErrors: { [key: string]: string } = {};
+    if (!formData.designation.trim()) newErrors.designation = 'La désignation est requise';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+    
+    setSubmitting(true);
     try {
       const data = {
-        ...formData,
+        code: formData.code || undefined,
+        designation: formData.designation,
+        type: formData.type,
+        categorie: formData.categorie,
+        unite: formData.unite,
         valeurUnitaire: formData.valeurUnitaire ? parseFloat(formData.valeurUnitaire) : undefined,
         seuilAlerte: formData.seuilAlerte ? parseInt(formData.seuilAlerte) : undefined,
+        actif: formData.actif,
       };
 
       if (editingMatiere) {
@@ -55,17 +97,43 @@ export default function AdminMatieres() {
       } else {
         await matiereService.create(data);
       }
-
-      setShowForm(false);
-      setEditingMatiere(null);
-      resetForm();
-      await loadMatieres();
+      await loadData();
+      closeModal();
     } catch (error: any) {
       alert(error.response?.data?.message || 'Erreur lors de l\'enregistrement');
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleEdit = (matiere: Matiere) => {
+  const handleDelete = async () => {
+    if (!deleteModal) return;
+    try {
+      await matiereService.delete(deleteModal.id);
+      await loadData();
+      setDeleteModal(null);
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Erreur lors de la suppression');
+    }
+  };
+
+  const openCreateModal = () => {
+    setEditingMatiere(null);
+    setFormData({
+      code: '',
+      designation: '',
+      type: 'CONSOMMABLE',
+      categorie: 'AUTRE',
+      unite: 'PIECE',
+      valeurUnitaire: '',
+      seuilAlerte: '',
+      actif: true,
+    });
+    setErrors({});
+    setShowModal(true);
+  };
+
+  const openEditModal = (matiere: Matiere) => {
     setEditingMatiere(matiere);
     setFormData({
       code: matiere.code,
@@ -77,194 +145,416 @@ export default function AdminMatieres() {
       seuilAlerte: matiere.seuilAlerte?.toString() || '',
       actif: matiere.actif,
     });
-    setShowForm(true);
+    setErrors({});
+    setShowModal(true);
   };
 
-  const handleDelete = async (id: number, designation: string) => {
-    if (!window.confirm(`Supprimer la matière "${designation}" ?`)) return;
-    try {
-      await matiereService.delete(id);
-      await loadMatieres();
-    } catch (error: any) {
-      alert(error.response?.data?.message || 'Erreur lors de la suppression');
-    }
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingMatiere(null);
+    setErrors({});
   };
 
-  const resetForm = () => {
-    setFormData({
-      code: '',
-      designation: '',
-      type: 'CONSOMMABLE',
-      categorie: 'AUTRE',
-      unite: 'PIECE',
-      valeurUnitaire: '',
-      seuilAlerte: '',
-      actif: true,
-    });
+  const getCategoryLabel = (cat: string) => {
+    return CATEGORIES.find(c => c.value === cat)?.label || cat;
   };
 
-  if (loading) return <Layout><div style={{padding:'20px'}}>Chargement...</div></Layout>;
+  const getUniteLabel = (unite: string) => {
+    return UNITES.find(u => u.value === unite)?.label || unite;
+  };
+
+  const columns: Column<Matiere>[] = [
+    {
+      key: 'designation',
+      header: 'Matière',
+      sortable: true,
+      render: (matiere) => (
+        <div style={styles.matiereCell}>
+          <div style={{
+            ...styles.matiereIcon,
+            background: matiere.type === 'DURABLE' 
+              ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)'
+              : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+          }}>
+            📦
+          </div>
+          <div style={styles.matiereInfo}>
+            <span style={styles.matiereName}>{matiere.designation}</span>
+            <Badge variant="info" size="sm">{matiere.code}</Badge>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'type',
+      header: 'Type',
+      sortable: true,
+      render: (matiere) => (
+        <Badge variant={matiere.type === 'DURABLE' ? 'info' : 'warning'}>
+          {matiere.type}
+        </Badge>
+      ),
+    },
+    {
+      key: 'categorie',
+      header: 'Catégorie',
+      sortable: true,
+      render: (matiere) => (
+        <span style={styles.categoryBadge}>{getCategoryLabel(matiere.categorie)}</span>
+      ),
+    },
+    {
+      key: 'unite',
+      header: 'Unité',
+      render: (matiere) => getUniteLabel(matiere.unite),
+    },
+    {
+      key: 'valeurUnitaire',
+      header: 'Valeur',
+      sortable: true,
+      render: (matiere) => matiere.valeurUnitaire 
+        ? <span style={styles.price}>{matiere.valeurUnitaire.toFixed(2)} €</span>
+        : <span style={styles.muted}>-</span>,
+    },
+    {
+      key: 'seuilAlerte',
+      header: 'Seuil',
+      render: (matiere) => matiere.seuilAlerte 
+        ? <span style={styles.countBadge}>{matiere.seuilAlerte}</span>
+        : <span style={styles.muted}>-</span>,
+    },
+    {
+      key: 'actif',
+      header: 'Statut',
+      sortable: true,
+      render: (matiere) => (
+        <Badge variant={matiere.actif ? 'success' : 'danger'}>
+          {matiere.actif ? 'Actif' : 'Inactif'}
+        </Badge>
+      ),
+    },
+  ];
+
+  const renderActions = (matiere: Matiere) => (
+    <div style={styles.actions}>
+      <Button size="sm" variant="secondary" onClick={() => openEditModal(matiere)}>
+        ✏️
+      </Button>
+      <Button size="sm" variant="danger" onClick={() => setDeleteModal(matiere)}>
+        🗑️
+      </Button>
+    </div>
+  );
+
+  const activeMatieres = matieres.filter(m => m.actif).length;
+  const durables = matieres.filter(m => m.type === 'DURABLE').length;
+  const consommables = matieres.filter(m => m.type === 'CONSOMMABLE').length;
 
   return (
-    <Layout>
+    <AdminLayout>
       <div style={styles.container}>
-        <div style={styles.header}>
+        {/* Page Header */}
+        <div style={styles.pageHeader}>
           <div>
-            <h1 style={styles.title}>📦 Gestion des Matières</h1>
-            <p style={styles.subtitle}>{matieres.length} matière(s)</p>
+            <h1 style={styles.pageTitle}>Gestion des Matières</h1>
+            <p style={styles.pageSubtitle}>Catalogue des matières et fournitures</p>
           </div>
-          <div style={styles.headerActions}>
-            <button style={styles.backButton} onClick={() => navigate('/admin')}>← Retour</button>
-            <button style={styles.addButton} onClick={() => { resetForm(); setEditingMatiere(null); setShowForm(true); }}>
-              ➕ Nouvelle Matière
-            </button>
+          <Button variant="success" icon="+" onClick={openCreateModal}>
+            Nouvelle Matière
+          </Button>
+        </div>
+
+        {/* Stats */}
+        <div style={styles.statsRow}>
+          <div style={styles.statItem}>
+            <span style={styles.statValue}>{matieres.length}</span>
+            <span style={styles.statLabel}>Total</span>
+          </div>
+          <div style={styles.statDivider}></div>
+          <div style={styles.statItem}>
+            <span style={{ ...styles.statValue, color: '#10b981' }}>{activeMatieres}</span>
+            <span style={styles.statLabel}>Actives</span>
+          </div>
+          <div style={styles.statDivider}></div>
+          <div style={styles.statItem}>
+            <span style={{ ...styles.statValue, color: '#3b82f6' }}>{durables}</span>
+            <span style={styles.statLabel}>Durables</span>
+          </div>
+          <div style={styles.statDivider}></div>
+          <div style={styles.statItem}>
+            <span style={{ ...styles.statValue, color: '#f59e0b' }}>{consommables}</span>
+            <span style={styles.statLabel}>Consommables</span>
           </div>
         </div>
 
-        {showForm && (
-          <div style={styles.formCard}>
-            <h2 style={styles.formTitle}>{editingMatiere ? 'Modifier' : 'Nouvelle'} Matière</h2>
-            <form onSubmit={handleSubmit}>
-              <div style={styles.formGrid}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Code *</label>
-                  <input style={styles.input} value={formData.code} onChange={(e) => setFormData({...formData, code: e.target.value})} required />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Désignation *</label>
-                  <input style={styles.input} value={formData.designation} onChange={(e) => setFormData({...formData, designation: e.target.value})} required />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Type *</label>
-                  <select style={styles.input} value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})}>
-                    <option value="CONSOMMABLE">Consommable</option>
-                    <option value="DURABLE">Durable</option>
-                  </select>
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Catégorie *</label>
-                  <select style={styles.input} value={formData.categorie} onChange={(e) => setFormData({...formData, categorie: e.target.value})}>
-                    <option value="INFORMATIQUE">Informatique</option>
-                    <option value="MOBILIER">Mobilier</option>
-                    <option value="FOURNITURE">Fourniture</option>
-                    <option value="VEHICULE">Véhicule</option>
-                    <option value="EQUIPEMENT">Équipement</option>
-                    <option value="MATERIEL_MEDICAL">Matériel Médical</option>
-                    <option value="PRODUIT_ENTRETIEN">Produit d'Entretien</option>
-                    <option value="PAPETERIE">Papeterie</option>
-                    <option value="AUTRE">Autre</option>
-                  </select>
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Unité *</label>
-                  <select style={styles.input} value={formData.unite} onChange={(e) => setFormData({...formData, unite: e.target.value})}>
-                    <option value="PIECE">Pièce</option>
-                    <option value="LOT">Lot</option>
-                    <option value="BOITE">Boîte</option>
-                    <option value="PAQUET">Paquet</option>
-                    <option value="KG">Kilogramme</option>
-                    <option value="GRAMME">Gramme</option>
-                    <option value="LITRE">Litre</option>
-                    <option value="MILLILITRE">Millilitre</option>
-                    <option value="METRE">Mètre</option>
-                    <option value="METRE_CARRE">Mètre Carré</option>
-                    <option value="CARTON">Carton</option>
-                    <option value="PALETTE">Palette</option>
-                  </select>
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Valeur Unitaire</label>
-                  <input type="number" step="0.01" style={styles.input} value={formData.valeurUnitaire} onChange={(e) => setFormData({...formData, valeurUnitaire: e.target.value})} />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Seuil d'Alerte</label>
-                  <input type="number" style={styles.input} value={formData.seuilAlerte} onChange={(e) => setFormData({...formData, seuilAlerte: e.target.value})} />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>
-                    <input type="checkbox" checked={formData.actif} onChange={(e) => setFormData({...formData, actif: e.target.checked})} />
-                    {' '}Actif
-                  </label>
-                </div>
-              </div>
-              <div style={styles.formActions}>
-                <button type="submit" style={styles.submitButton}>💾 Enregistrer</button>
-                <button type="button" style={styles.cancelButton} onClick={() => { setShowForm(false); setEditingMatiere(null); }}>Annuler</button>
-              </div>
-            </form>
-          </div>
-        )}
+        {/* Data Table */}
+        <DataTable
+          data={matieres}
+          columns={columns}
+          loading={loading}
+          searchPlaceholder="Rechercher une matière..."
+          searchKeys={['code', 'designation', 'categorie', 'type']}
+          actions={renderActions}
+          emptyMessage="Aucune matière trouvée"
+        />
 
-        <div style={styles.tableCard}>
-          <table style={styles.table}>
-            <thead>
-              <tr style={styles.tableHeaderRow}>
-                <th style={styles.th}>Code</th>
-                <th style={styles.th}>Désignation</th>
-                <th style={styles.th}>Type</th>
-                <th style={styles.th}>Catégorie</th>
-                <th style={styles.th}>Unité</th>
-                <th style={styles.th}>Valeur</th>
-                <th style={styles.th}>Seuil</th>
-                <th style={styles.th}>Statut</th>
-                <th style={styles.th}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {matieres.map((matiere) => (
-                <tr key={matiere.id} style={styles.tableRow}>
-                  <td style={styles.td}>{matiere.code}</td>
-                  <td style={styles.td}>{matiere.designation}</td>
-                  <td style={styles.td}><span style={{...styles.badge, backgroundColor: matiere.type === 'DURABLE' ? '#3b82f6' : '#f59e0b'}}>{matiere.type}</span></td>
-                  <td style={styles.td}>{matiere.categorie}</td>
-                  <td style={styles.td}>{matiere.unite}</td>
-                  <td style={styles.td}>{matiere.valeurUnitaire ? `${matiere.valeurUnitaire} €` : '-'}</td>
-                  <td style={styles.td}>{matiere.seuilAlerte || '-'}</td>
-                  <td style={styles.td}>
-                    <span style={{...styles.badge, backgroundColor: matiere.actif ? '#10b981' : '#ef4444'}}>
-                      {matiere.actif ? 'Actif' : 'Inactif'}
-                    </span>
-                  </td>
-                  <td style={styles.td}>
-                    <div style={styles.actions}>
-                      <button style={{...styles.actionButton, backgroundColor: '#3b82f6'}} onClick={() => handleEdit(matiere)}>✏️</button>
-                      <button style={{...styles.actionButton, backgroundColor: '#ef4444'}} onClick={() => handleDelete(matiere.id, matiere.designation)}>🗑️</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {/* Create/Edit Modal */}
+        <Modal
+          isOpen={showModal}
+          onClose={closeModal}
+          title={editingMatiere ? 'Modifier la matière' : 'Nouvelle matière'}
+          size="lg"
+          footer={
+            <>
+              <Button variant="secondary" onClick={closeModal}>Annuler</Button>
+              <Button 
+                variant="primary" 
+                onClick={handleSubmit}
+                loading={submitting}
+              >
+                {editingMatiere ? 'Modifier' : 'Créer'}
+              </Button>
+            </>
+          }
+        >
+          <div style={styles.form}>
+            <div style={styles.formRow}>
+              <FormField label="Code" error={errors.code}>
+                <Input
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                  placeholder="Auto-généré (MAT-XXXX)"
+                  hasError={!!errors.code}
+                />
+              </FormField>
+
+              <FormField label="Désignation" required error={errors.designation}>
+                <Input
+                  value={formData.designation}
+                  onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
+                  placeholder="Ex: Ordinateur portable"
+                  hasError={!!errors.designation}
+                />
+              </FormField>
+            </div>
+
+            <div style={styles.formRow}>
+              <FormField label="Type" required>
+                <Select
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                  options={TYPES}
+                />
+              </FormField>
+
+              <FormField label="Catégorie" required>
+                <Select
+                  value={formData.categorie}
+                  onChange={(e) => setFormData({ ...formData, categorie: e.target.value })}
+                  options={CATEGORIES}
+                />
+              </FormField>
+
+              <FormField label="Unité" required>
+                <Select
+                  value={formData.unite}
+                  onChange={(e) => setFormData({ ...formData, unite: e.target.value })}
+                  options={UNITES}
+                />
+              </FormField>
+            </div>
+
+            <div style={styles.formRow}>
+              <FormField label="Valeur unitaire (€)" hint="Prix unitaire de la matière">
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={formData.valeurUnitaire}
+                  onChange={(e) => setFormData({ ...formData, valeurUnitaire: e.target.value })}
+                  placeholder="0.00"
+                />
+              </FormField>
+
+              <FormField label="Seuil d'alerte" hint="Quantité minimale avant alerte">
+                <Input
+                  type="number"
+                  value={formData.seuilAlerte}
+                  onChange={(e) => setFormData({ ...formData, seuilAlerte: e.target.value })}
+                  placeholder="0"
+                />
+              </FormField>
+            </div>
+
+            <Checkbox
+              label="Matière active (disponible pour les expressions de besoin)"
+              checked={formData.actif}
+              onChange={(checked) => setFormData({ ...formData, actif: checked })}
+            />
+          </div>
+        </Modal>
+
+        {/* Delete Modal */}
+        <Modal
+          isOpen={!!deleteModal}
+          onClose={() => setDeleteModal(null)}
+          title="Confirmer la suppression"
+          size="sm"
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setDeleteModal(null)}>Annuler</Button>
+              <Button variant="danger" onClick={handleDelete}>Supprimer</Button>
+            </>
+          }
+        >
+          {deleteModal && (
+            <div style={styles.deleteContent}>
+              <div style={styles.deleteIcon}>⚠️</div>
+              <p style={styles.deleteText}>
+                Êtes-vous sûr de vouloir supprimer la matière <strong>{deleteModal.designation}</strong> ?
+              </p>
+              <p style={styles.deleteWarning}>Cette action est irréversible.</p>
+            </div>
+          )}
+        </Modal>
       </div>
-    </Layout>
+    </AdminLayout>
   );
 }
 
-const styles: {[key:string]:React.CSSProperties} = {
-  container: {maxWidth:'1400px',margin:'0 auto',padding:'20px'},
-  header: {display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'30px'},
-  title: {fontSize:'32px',fontWeight:'bold',color:'#1f2937',marginBottom:'4px'},
-  subtitle: {fontSize:'14px',color:'#6b7280'},
-  headerActions: {display:'flex',gap:'12px'},
-  backButton: {padding:'10px 20px',backgroundColor:'#6b7280',color:'white',border:'none',borderRadius:'8px',cursor:'pointer',fontWeight:'600'},
-  addButton: {padding:'10px 20px',backgroundColor:'#10b981',color:'white',border:'none',borderRadius:'8px',cursor:'pointer',fontWeight:'600'},
-  formCard: {backgroundColor:'white',padding:'24px',borderRadius:'12px',boxShadow:'0 2px 8px rgba(0,0,0,0.1)',marginBottom:'20px'},
-  formTitle: {fontSize:'20px',fontWeight:'bold',marginBottom:'20px'},
-  formGrid: {display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:'16px',marginBottom:'20px'},
-  formGroup: {display:'flex',flexDirection:'column',gap:'8px'},
-  label: {fontSize:'14px',fontWeight:'600',color:'#374151'},
-  input: {padding:'10px',border:'1px solid #d1d5db',borderRadius:'6px',fontSize:'14px'},
-  formActions: {display:'flex',gap:'12px',justifyContent:'flex-end'},
-  submitButton: {padding:'10px 24px',backgroundColor:'#10b981',color:'white',border:'none',borderRadius:'8px',cursor:'pointer',fontWeight:'600'},
-  cancelButton: {padding:'10px 24px',backgroundColor:'#6b7280',color:'white',border:'none',borderRadius:'8px',cursor:'pointer',fontWeight:'600'},
-  tableCard: {backgroundColor:'white',borderRadius:'12px',boxShadow:'0 2px 8px rgba(0,0,0,0.1)',overflow:'hidden'},
-  table: {width:'100%',borderCollapse:'collapse'},
-  tableHeaderRow: {backgroundColor:'#f9fafb'},
-  th: {padding:'12px',textAlign:'left',fontSize:'12px',fontWeight:'700',color:'#374151',borderBottom:'2px solid #e5e7eb'},
-  tableRow: {borderBottom:'1px solid #e5e7eb'},
-  td: {padding:'12px',fontSize:'14px',color:'#1f2937'},
-  badge: {padding:'4px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:'600',color:'white',display:'inline-block'},
-  actions: {display:'flex',gap:'8px'},
-  actionButton: {padding:'6px 12px',color:'white',border:'none',borderRadius:'6px',cursor:'pointer',fontSize:'14px'},
+const styles: { [key: string]: React.CSSProperties } = {
+  container: {
+    maxWidth: '1400px',
+    margin: '0 auto',
+  },
+  pageHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '24px',
+  },
+  pageTitle: {
+    fontSize: '28px',
+    fontWeight: '700',
+    color: '#1e293b',
+    margin: 0,
+  },
+  pageSubtitle: {
+    fontSize: '14px',
+    color: '#64748b',
+    margin: '4px 0 0 0',
+  },
+  statsRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '24px',
+    padding: '20px 24px',
+    background: '#ffffff',
+    borderRadius: '12px',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    marginBottom: '24px',
+  },
+  statItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: '28px',
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  statLabel: {
+    fontSize: '13px',
+    color: '#64748b',
+  },
+  statDivider: {
+    width: '1px',
+    height: '40px',
+    background: '#e2e8f0',
+  },
+  matiereCell: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  matiereIcon: {
+    width: '44px',
+    height: '44px',
+    borderRadius: '10px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '20px',
+  },
+  matiereInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  matiereName: {
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  categoryBadge: {
+    padding: '4px 10px',
+    background: '#f1f5f9',
+    borderRadius: '6px',
+    fontSize: '12px',
+    color: '#475569',
+    fontWeight: '500',
+  },
+  price: {
+    fontWeight: '600',
+    color: '#10b981',
+  },
+  muted: {
+    color: '#94a3b8',
+    fontStyle: 'italic',
+  },
+  countBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: '28px',
+    height: '28px',
+    padding: '0 8px',
+    background: '#f1f5f9',
+    borderRadius: '8px',
+    fontSize: '13px',
+    fontWeight: '600',
+    color: '#475569',
+  },
+  actions: {
+    display: 'flex',
+    gap: '8px',
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
+  },
+  formRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: '16px',
+  },
+  deleteContent: {
+    textAlign: 'center',
+    padding: '20px 0',
+  },
+  deleteIcon: {
+    fontSize: '48px',
+    marginBottom: '16px',
+  },
+  deleteText: {
+    fontSize: '15px',
+    color: '#475569',
+    marginBottom: '8px',
+  },
+  deleteWarning: {
+    fontSize: '13px',
+    color: '#ef4444',
+    fontWeight: '500',
+  },
 };

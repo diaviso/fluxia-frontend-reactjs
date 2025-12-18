@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Login } from './pages/Login';
 import { AuthCallback } from './pages/AuthCallback';
@@ -18,11 +19,17 @@ import AdminDivisions from './pages/admin/AdminDivisions';
 import AdminServices from './pages/admin/AdminServices';
 import AdminExpressions from './pages/admin/AdminExpressions';
 import AdminMatieres from './pages/admin/AdminMatieres';
+import AdminBonsCommande from './pages/admin/AdminBonsCommande';
+import AdminFournisseurs from './pages/admin/AdminFournisseurs';
+import AdminReceptions from './pages/admin/AdminReceptions';
+import ReceptionBonCommande from './pages/ReceptionBonCommande';
+import PVReception from './pages/PVReception';
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <NotificationProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
@@ -146,9 +153,50 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/admin/bons-commande"
+            element={
+              <ProtectedRoute>
+                <AdminBonsCommande />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/fournisseurs"
+            element={
+              <ProtectedRoute>
+                <AdminFournisseurs />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/receptions"
+            element={
+              <ProtectedRoute>
+                <AdminReceptions />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/bons-commande/:id/reception"
+            element={
+              <ProtectedRoute>
+                <ReceptionBonCommande />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/receptions/:id/pv"
+            element={
+              <ProtectedRoute>
+                <PVReception />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
+        </NotificationProvider>
       </AuthProvider>
     </BrowserRouter>
   );

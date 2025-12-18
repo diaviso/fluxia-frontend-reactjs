@@ -52,7 +52,14 @@ export function Dashboard() {
   };
 
   if (loading) {
-    return <Layout><div style={{padding:'20px'}}>Chargement...</div></Layout>;
+    return (
+      <Layout>
+        <div style={styles.loadingContainer}>
+          <div style={styles.spinner}></div>
+          <span style={styles.loadingText}>Chargement...</span>
+        </div>
+      </Layout>
+    );
   }
 
   // Check if user is activated
@@ -85,109 +92,159 @@ export function Dashboard() {
     );
   }
 
+  const statusItems = [
+    { name: 'Brouillon', count: stats.brouillon, color: '#64748b', icon: '📝' },
+    { name: 'En Attente', count: stats.enAttente, color: '#f59e0b', icon: '⏳' },
+    { name: 'Validé', count: stats.valide, color: '#10b981', icon: '✅' },
+    { name: 'Refusé', count: stats.refuse, color: '#ef4444', icon: '❌' },
+    { name: 'Pris en Charge', count: stats.prisEnCharge, color: '#8b5cf6', icon: '📦' },
+  ];
+
   return (
     <Layout>
       <div style={styles.container}>
-        <div style={styles.content}>
-          <div style={styles.header}>
-            <div>
-              <h1 style={styles.title}>Tableau de bord</h1>
-              <p style={styles.subtitle}>Bienvenue, {user?.prenom || user?.nom || user?.email}</p>
+        {/* Welcome Section */}
+        <div style={styles.welcomeSection}>
+          <div style={styles.welcomeContent}>
+            <h1 style={styles.welcomeTitle}>
+              Bonjour, {user?.prenom || user?.nom || 'Utilisateur'} 👋
+            </h1>
+            <p style={styles.welcomeSubtitle}>
+              Bienvenue sur votre tableau de bord. Voici un aperçu de vos expressions de besoin.
+            </p>
+          </div>
+          <button onClick={() => navigate('/expressions/create')} style={styles.createButton}>
+            <span style={styles.createButtonIcon}>+</span>
+            Nouvelle Expression
+          </button>
+        </div>
+
+        {/* Stats Cards */}
+        <div style={styles.statsGrid}>
+          <div style={styles.statCard} onClick={() => navigate('/expressions')}>
+            <div style={styles.statIconWrapper}>
+              <span style={{...styles.statIconBg, background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'}}>📋</span>
             </div>
-            <button onClick={() => navigate('/expressions/create')} style={styles.createButton}>
-              + Nouvelle Expression
-            </button>
+            <div style={styles.statInfo}>
+              <span style={styles.statValue}>{stats.totalExpressions}</span>
+              <span style={styles.statLabel}>Total Expressions</span>
+            </div>
           </div>
 
-          <div style={styles.statsGrid}>
-            <div style={{...styles.statCard, ...styles.statCardBlue}}>
-              <div style={styles.statContent}>
-                <div>
-                  <div style={styles.statValue}>{stats.totalExpressions}</div>
-                  <div style={styles.statLabel}>TOTAL EXPRESSIONS</div>
-                </div>
-                <div style={styles.statIcon}>📋</div>
-              </div>
+          <div style={styles.statCard}>
+            <div style={styles.statIconWrapper}>
+              <span style={{...styles.statIconBg, background: 'linear-gradient(135deg, #64748b 0%, #475569 100%)'}}>📝</span>
             </div>
-            
-            <div style={{...styles.statCard, ...styles.statCardOrange}}>
-              <div style={styles.statContent}>
-                <div>
-                  <div style={styles.statValue}>{stats.brouillon}</div>
-                  <div style={styles.statLabel}>BROUILLONS</div>
-                </div>
-                <div style={styles.statIcon}>📝</div>
-              </div>
+            <div style={styles.statInfo}>
+              <span style={styles.statValue}>{stats.brouillon}</span>
+              <span style={styles.statLabel}>Brouillons</span>
             </div>
-            
-            <div style={{...styles.statCard, ...styles.statCardGreen}}>
-              <div style={styles.statContent}>
-                <div>
-                  <div style={styles.statValue}>{stats.valide}</div>
-                  <div style={styles.statLabel}>VALIDÉES</div>
-                </div>
-                <div style={styles.statIcon}>✅</div>
-              </div>
-            </div>
-            
-            <div style={{...styles.statCard, ...styles.statCardPurple}}>
-              <div style={styles.statContent}>
-                <div>
-                  <div style={styles.statValue}>{stats.enAttente}</div>
-                  <div style={styles.statLabel}>EN ATTENTE</div>
-                </div>
-                <div style={styles.statIcon}>⏳</div>
-              </div>
-            </div>
-            
           </div>
 
-        <div style={styles.chartsGrid}>
-          <div style={styles.chartCard}>
-            <h2 style={styles.chartTitle}>📊 Par Statut</h2>
-            {[
-              {name:'Brouillon',count:stats.brouillon,color:'#6b7280'},
-              {name:'En Attente',count:stats.enAttente,color:'#f59e0b'},
-              {name:'Validé',count:stats.valide,color:'#10b981'},
-              {name:'Refusé',count:stats.refuse,color:'#ef4444'},
-              {name:'Pris en Charge',count:stats.prisEnCharge,color:'#8b5cf6'},
-            ].map(item => (
-              <div key={item.name} style={styles.statusItem}>
-                <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
-                  <span style={{width:'12px',height:'12px',borderRadius:'50%',backgroundColor:item.color}}/>
-                  <span>{item.name}</span>
-                </div>
-                <div style={{display:'flex',gap:'12px'}}>
-                  <span style={{fontWeight:'bold'}}>{item.count}</span>
-                  <span style={{color:'#6b7280'}}>
-                    {stats.totalExpressions>0?Math.round((item.count/stats.totalExpressions)*100):0}%
-                  </span>
-                </div>
-              </div>
-            ))}
+          <div style={styles.statCard}>
+            <div style={styles.statIconWrapper}>
+              <span style={{...styles.statIconBg, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)'}}>✅</span>
+            </div>
+            <div style={styles.statInfo}>
+              <span style={styles.statValue}>{stats.valide}</span>
+              <span style={styles.statLabel}>Validées</span>
+            </div>
           </div>
 
-          <div style={styles.chartCard}>
-            <h2 style={styles.chartTitle}>🚀 Actions Rapides</h2>
-            <button style={styles.actionBtn} onClick={()=>navigate('/expressions/create')}>
-              ➕ Nouvelle Expression
-            </button>
-            <button style={styles.actionBtn} onClick={()=>navigate('/expressions')}>
-              📄 Mes Expressions
-            </button>
-            {(user?.role==='VALIDATEUR'||user?.role==='ADMIN')&&(
-              <button style={styles.actionBtn} onClick={()=>navigate('/expressions/validate')}>
-                ✅ Validation
-              </button>
-            )}
-            {user?.role==='ADMIN'&&(
-              <button style={styles.actionBtn} onClick={()=>navigate('/admin')}>
-                🛠️ Administration
-              </button>
-            )}
+          <div style={styles.statCard}>
+            <div style={styles.statIconWrapper}>
+              <span style={{...styles.statIconBg, background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'}}>⏳</span>
+            </div>
+            <div style={styles.statInfo}>
+              <span style={styles.statValue}>{stats.enAttente}</span>
+              <span style={styles.statLabel}>En Attente</span>
+            </div>
           </div>
         </div>
-      </div>
+
+        {/* Main Content Grid */}
+        <div style={styles.contentGrid}>
+          {/* Status Breakdown */}
+          <div style={styles.card}>
+            <div style={styles.cardHeader}>
+              <h2 style={styles.cardTitle}>📊 Répartition par Statut</h2>
+            </div>
+            <div style={styles.cardBody}>
+              {statusItems.map(item => (
+                <div key={item.name} style={styles.statusRow}>
+                  <div style={styles.statusLeft}>
+                    <span style={{...styles.statusDot, backgroundColor: item.color}}></span>
+                    <span style={styles.statusIcon}>{item.icon}</span>
+                    <span style={styles.statusName}>{item.name}</span>
+                  </div>
+                  <div style={styles.statusRight}>
+                    <span style={styles.statusCount}>{item.count}</span>
+                    <div style={styles.progressBarContainer}>
+                      <div 
+                        style={{
+                          ...styles.progressBar,
+                          width: `${stats.totalExpressions > 0 ? (item.count / stats.totalExpressions) * 100 : 0}%`,
+                          backgroundColor: item.color,
+                        }}
+                      ></div>
+                    </div>
+                    <span style={styles.statusPercent}>
+                      {stats.totalExpressions > 0 ? Math.round((item.count / stats.totalExpressions) * 100) : 0}%
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div style={styles.card}>
+            <div style={styles.cardHeader}>
+              <h2 style={styles.cardTitle}>🚀 Actions Rapides</h2>
+            </div>
+            <div style={styles.cardBody}>
+              <div style={styles.actionsGrid}>
+                <button style={styles.actionCard} onClick={() => navigate('/expressions/create')}>
+                  <span style={styles.actionIcon}>➕</span>
+                  <span style={styles.actionLabel}>Nouvelle Expression</span>
+                </button>
+                <button style={styles.actionCard} onClick={() => navigate('/expressions')}>
+                  <span style={styles.actionIcon}>📄</span>
+                  <span style={styles.actionLabel}>Mes Expressions</span>
+                </button>
+                {(user?.role === 'VALIDATEUR' || user?.role === 'ADMIN') && (
+                  <button style={styles.actionCard} onClick={() => navigate('/expressions/validate')}>
+                    <span style={styles.actionIcon}>✅</span>
+                    <span style={styles.actionLabel}>Validation</span>
+                  </button>
+                )}
+                {user?.role === 'ADMIN' && (
+                  <button style={styles.actionCard} onClick={() => navigate('/admin')}>
+                    <span style={styles.actionIcon}>🛠️</span>
+                    <span style={styles.actionLabel}>Administration</span>
+                  </button>
+                )}
+                <button style={styles.actionCard} onClick={() => navigate('/profile')}>
+                  <span style={styles.actionIcon}>👤</span>
+                  <span style={styles.actionLabel}>Mon Profil</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Info Box */}
+        {user?.divisionDirigee && (
+          <div style={styles.infoBox}>
+            <span style={styles.infoIcon}>🏢</span>
+            <div style={styles.infoContent}>
+              <span style={styles.infoTitle}>Chef de Division</span>
+              <span style={styles.infoText}>
+                Vous êtes responsable de la division <strong>{user.divisionDirigee.nom}</strong>
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   );
@@ -195,132 +252,249 @@ export function Dashboard() {
 
 const styles: {[key:string]:React.CSSProperties} = {
   container: {
-    background: '#f5f7fa',
-    minHeight: '100vh',
-  },
-  content: {
+    padding: '20px',
     maxWidth: '1400px',
-    margin: '0 auto',
-    padding: '24px',
+    //margin: '0 auto',
   },
-  header: {
+  loadingContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '400px',
+    gap: '16px',
+  },
+  spinner: {
+    width: '40px',
+    height: '40px',
+    border: '3px solid #e2e8f0',
+    borderTopColor: '#6366f1',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+  },
+  loadingText: {
+    color: '#64748b',
+    fontSize: '14px',
+  },
+  welcomeSection: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '40px',
-    flexWrap: 'wrap',
-    gap: '20px',
+    marginBottom: '32px',
+    padding: '28px 32px',
+    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+    borderRadius: '20px',
+    color: '#ffffff',
+    boxShadow: '0 10px 40px rgba(99, 102, 241, 0.3)',
   },
-  title: {
-    fontSize: '24px',
+  welcomeContent: {
+    flex: 1,
+  },
+  welcomeTitle: {
+    fontSize: '28px',
     fontWeight: '700',
-    color: '#1a202c',
+    margin: '0 0 8px 0',
+  },
+  welcomeSubtitle: {
+    fontSize: '15px',
+    opacity: 0.9,
     margin: 0,
   },
-  subtitle: {
-    fontSize: '14px',
-    color: '#718096',
-    marginTop: '4px',
-  },
   createButton: {
-    padding: '12px 24px',
-    background: '#4299e1',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '14px 28px',
+    background: 'rgba(255, 255, 255, 0.2)',
+    backdropFilter: 'blur(10px)',
     color: '#ffffff',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '14px',
+    border: '2px solid rgba(255, 255, 255, 0.3)',
+    borderRadius: '12px',
+    fontSize: '15px',
     fontWeight: '600',
     cursor: 'pointer',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
     transition: 'all 0.2s ease',
+  },
+  createButtonIcon: {
+    fontSize: '20px',
+    fontWeight: '700',
   },
   statsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-    gap: '16px',
-    marginBottom: '24px',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+    gap: '20px',
+    marginBottom: '32px',
   },
   statCard: {
-    borderRadius: '12px',
+    background: '#ffffff',
+    borderRadius: '16px',
     padding: '24px',
-    color: '#ffffff',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-    transition: 'transform 0.2s ease',
-  },
-  statCardBlue: {
-    background: 'linear-gradient(135deg, #4299e1 0%, #3182ce 100%)',
-  },
-  statCardOrange: {
-    background: 'linear-gradient(135deg, #ed8936 0%, #dd6b20 100%)',
-  },
-  statCardGreen: {
-    background: 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)',
-  },
-  statCardPurple: {
-    background: 'linear-gradient(135deg, #9f7aea 0%, #805ad5 100%)',
-  },
-  statContent: {
     display: 'flex',
-    justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  statValue: {
-    fontSize: '36px',
-    fontWeight: '700',
-    marginBottom: '8px',
-  },
-  statLabel: {
-    fontSize: '12px',
-    fontWeight: '600',
-    opacity: 0.9,
-    letterSpacing: '0.5px',
-  },
-  statIcon: {
-    fontSize: '48px',
-    opacity: 0.3,
+    gap: '20px',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    border: '1px solid #e2e8f0',
   },
   statIconWrapper: {
     flexShrink: 0,
   },
-  chartsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-    gap: '20px',
-  },
-  chartCard: {
-    background: '#ffffff',
-    padding: '24px',
-    borderRadius: '12px',
-    border: '1px solid #e2e8f0',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-  },
-  chartTitle: {
-    fontSize: '18px',
-    fontWeight: '600',
-    color: '#1a202c',
-    marginBottom: '16px',
-  },
-  statusItem: {
+  statIconBg: {
+    width: '56px',
+    height: '56px',
+    borderRadius: '14px',
     display: 'flex',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '12px 0',
-    borderBottom: '1px solid #e2e8f0',
-    fontSize: '14px',
-    color: '#4a5568',
+    justifyContent: 'center',
+    fontSize: '26px',
   },
-  actionBtn: {
-    width: '100%',
-    padding: '12px 16px',
-    background: '#f7fafc',
-    color: '#2d3748',
-    border: '1px solid #e2e8f0',
-    borderRadius: '8px',
+  statInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  statValue: {
+    fontSize: '32px',
+    fontWeight: '700',
+    color: '#1e293b',
+    lineHeight: 1,
+  },
+  statLabel: {
     fontSize: '14px',
+    color: '#64748b',
+    marginTop: '4px',
+  },
+  contentGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+    gap: '24px',
+    marginBottom: '24px',
+  },
+  card: {
+    background: '#ffffff',
+    borderRadius: '16px',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    border: '1px solid #e2e8f0',
+    overflow: 'hidden',
+  },
+  cardHeader: {
+    padding: '20px 24px',
+    borderBottom: '1px solid #e2e8f0',
+    background: '#f8fafc',
+  },
+  cardTitle: {
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#1e293b',
+    margin: 0,
+  },
+  cardBody: {
+    padding: '20px 24px',
+  },
+  statusRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '14px 0',
+    borderBottom: '1px solid #f1f5f9',
+  },
+  statusLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  statusDot: {
+    width: '10px',
+    height: '10px',
+    borderRadius: '50%',
+  },
+  statusIcon: {
+    fontSize: '18px',
+  },
+  statusName: {
+    fontSize: '14px',
+    color: '#475569',
     fontWeight: '500',
+  },
+  statusRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  statusCount: {
+    fontSize: '16px',
+    fontWeight: '700',
+    color: '#1e293b',
+    minWidth: '30px',
+  },
+  progressBarContainer: {
+    width: '80px',
+    height: '6px',
+    background: '#e2e8f0',
+    borderRadius: '3px',
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: '3px',
+    transition: 'width 0.3s ease',
+  },
+  statusPercent: {
+    fontSize: '13px',
+    color: '#64748b',
+    minWidth: '40px',
+    textAlign: 'right',
+  },
+  actionsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+    gap: '12px',
+  },
+  actionCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '20px 16px',
+    background: '#f8fafc',
+    border: '2px solid #e2e8f0',
+    borderRadius: '12px',
     cursor: 'pointer',
-    marginBottom: '8px',
-    textAlign: 'left',
     transition: 'all 0.2s ease',
+  },
+  actionIcon: {
+    fontSize: '28px',
+  },
+  actionLabel: {
+    fontSize: '13px',
+    fontWeight: '600',
+    color: '#475569',
+    textAlign: 'center',
+  },
+  infoBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    padding: '20px 24px',
+    background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+    borderRadius: '14px',
+    border: '1px solid #bfdbfe',
+  },
+  infoIcon: {
+    fontSize: '32px',
+  },
+  infoContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  infoTitle: {
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#1e40af',
+  },
+  infoText: {
+    fontSize: '14px',
+    color: '#3b82f6',
   },
 };

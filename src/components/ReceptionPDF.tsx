@@ -67,15 +67,15 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   banner: {
-    backgroundColor: '#D4A574',
+    backgroundColor: '#4A7C59',
     padding: 10,
     marginBottom: 20,
   },
   bannerText: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Times-Bold',
     textAlign: 'center',
-    color: '#000000',
+    color: '#FFFFFF',
   },
   infoSection: {
     marginBottom: 20,
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   infoLabel: {
-    width: 120,
+    width: 130,
     fontSize: 9,
   },
   infoValue: {
@@ -98,12 +98,12 @@ const styles = StyleSheet.create({
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#F5E6D3',
+    backgroundColor: '#E8F5E9',
     padding: 8,
-    borderBottom: '1px solid #D4A574',
+    borderBottom: '1px solid #4A7C59',
   },
   tableHeaderText: {
-    fontSize: 8,
+    fontSize: 7,
     fontFamily: 'Helvetica-Bold',
   },
   tableRow: {
@@ -125,33 +125,45 @@ const styles = StyleSheet.create({
     color: '#666666',
   },
   col1: { width: '5%' },
-  col2: { width: '18%' },
-  col3: { width: '30%' },
+  col2: { width: '15%' },
+  col3: { width: '25%' },
   col4: { width: '12%', textAlign: 'center' },
-  col5: { width: '17.5%', textAlign: 'right' },
-  col6: { width: '17.5%', textAlign: 'right' },
-  totalsBox: {
+  col5: { width: '12%', textAlign: 'center' },
+  col6: { width: '12%', textAlign: 'center' },
+  col7: { width: '19%' },
+  summaryBox: {
     marginLeft: 'auto',
-    width: 200,
-    backgroundColor: '#F5E6D3',
-    padding: 10,
+    width: 220,
+    backgroundColor: '#E8F5E9',
+    padding: 12,
+    borderRadius: 4,
   },
-  totalRow: {
+  summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 8,
   },
-  totalLabel: {
+  summaryLabel: {
     fontSize: 9,
   },
-  totalValue: {
+  summaryValue: {
     fontSize: 9,
     fontFamily: 'Helvetica-Bold',
   },
-  totalFinal: {
+  summaryValueGreen: {
+    fontSize: 9,
+    fontFamily: 'Helvetica-Bold',
+    color: '#2E7D32',
+  },
+  summaryValueRed: {
+    fontSize: 9,
+    fontFamily: 'Helvetica-Bold',
+    color: '#C62828',
+  },
+  summaryFinal: {
     fontSize: 11,
     fontFamily: 'Times-Bold',
-    borderTop: '1px solid #D4A574',
+    borderTop: '1px solid #4A7C59',
     paddingTop: 8,
   },
   observations: {
@@ -165,6 +177,9 @@ const styles = StyleSheet.create({
   },
   observationsText: {
     fontSize: 8,
+    padding: 8,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 4,
   },
   signatureSection: {
     marginTop: 40,
@@ -173,11 +188,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   signatureBox: {
-    width: '45%',
+    width: '30%',
     alignItems: 'center',
   },
   signatureLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontFamily: 'Times-Bold',
     marginBottom: 40,
     textAlign: 'center',
@@ -189,7 +204,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   signatureName: {
-    fontSize: 9,
+    fontSize: 8,
     textAlign: 'center',
     marginTop: 5,
   },
@@ -205,31 +220,30 @@ const styles = StyleSheet.create({
   },
 });
 
-interface BonCommandePDFProps {
-  bonCommande: any;
+interface ReceptionPDFProps {
+  reception: any;
   qrCodeDataUrl: string;
-  flagImageUrl?: string;
-  logoImageUrl?: string;
 }
 
-export const BonCommandePDF: React.FC<BonCommandePDFProps> = ({ bonCommande, qrCodeDataUrl }) => {
-  const bc = bonCommande;
-  const dateStr = new Date(bc.dateEmission).toLocaleDateString('fr-FR', {
+export const ReceptionPDF: React.FC<ReceptionPDFProps> = ({ reception, qrCodeDataUrl }) => {
+  const rec = reception;
+  const bc = rec.bonCommande;
+  
+  const dateReceptionStr = new Date(rec.dateReception).toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: 'long',
     year: 'numeric',
   });
 
-  const total = bc.lignes.reduce((sum: number, lg: any) => sum + lg.quantite * lg.prixUnitaire, 0);
-  const remise = (total * bc.remise) / 100;
-  const apresRemise = total - remise;
-  const tva = (apresRemise * bc.tauxTVA) / 100;
-  const ttc = apresRemise + tva;
+  const totalRecue = rec.lignes.reduce((sum: number, l: any) => sum + l.quantiteRecue, 0);
+  const totalConforme = rec.lignes.reduce((sum: number, l: any) => sum + l.quantiteConforme, 0);
+  const totalNonConforme = rec.lignes.reduce((sum: number, l: any) => sum + l.quantiteNonConforme, 0);
+  const tauxConformite = totalRecue > 0 ? Math.round((totalConforme / totalRecue) * 100) : 0;
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
+        {/* Header - Même en-tête que le bon de commande */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={styles.headerTextBold}>REPUBLIQUE DU SENEGAL</Text>
@@ -245,48 +259,56 @@ export const BonCommandePDF: React.FC<BonCommandePDFProps> = ({ bonCommande, qrC
           </View>
           <View style={styles.headerRight}>
             {IMAGES.CROUSZ && <Image src={IMAGES.CROUSZ} style={styles.logo} />}
-            <Text style={styles.numeroText}>N° {bc.numero}</Text>
-            <Text style={styles.dateText}>Du {dateStr}</Text>
+            <Text style={styles.numeroText}>N° {rec.numero}</Text>
+            <Text style={styles.dateText}>Du {dateReceptionStr}</Text>
           </View>
         </View>
 
         {/* Banner */}
         <View style={styles.banner}>
-          <Text style={styles.bannerText}>BON DE COMMANDE</Text>
+          <Text style={styles.bannerText}>PROCÈS-VERBAL DE RÉCEPTION</Text>
         </View>
 
         {/* Info Section */}
         <View style={styles.infoSection}>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>N° Bon de Commande:</Text>
-            <Text style={styles.infoValue}>{bc.numero}</Text>
+            <Text style={styles.infoLabel}>N° PV de Réception:</Text>
+            <Text style={styles.infoValue}>{rec.numero}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Bon de Commande:</Text>
+            <Text style={styles.infoValue}>{bc?.numero || 'N/A'}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Expression:</Text>
+            <Text style={styles.infoValue}>{bc?.expression?.titre || 'N/A'}</Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Division:</Text>
-            <Text style={styles.infoValue}>{bc.expression?.division?.nom || 'N/A'}</Text>
+            <Text style={styles.infoValue}>{bc?.expression?.division?.nom || 'N/A'}</Text>
           </View>
-          {bc.expression?.service && (
+          {bc?.expression?.service && (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Service:</Text>
               <Text style={styles.infoValue}>{bc.expression.service.nom}</Text>
             </View>
           )}
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Date émission:</Text>
+            <Text style={styles.infoLabel}>Date de réception:</Text>
             <Text style={styles.infoValue}>
-              {new Date(bc.dateEmission).toLocaleDateString('fr-FR')}
+              {new Date(rec.dateReception).toLocaleDateString('fr-FR')}
             </Text>
           </View>
-          {bc.fournisseur && (
+          {bc?.fournisseur && (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Fournisseur:</Text>
               <Text style={styles.infoValue}>{bc.fournisseur.raisonSociale || bc.fournisseur}</Text>
             </View>
           )}
-          {bc.adresseLivraison && (
+          {rec.livreur && (
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Adresse livraison:</Text>
-              <Text style={styles.infoValue}>{bc.adresseLivraison}</Text>
+              <Text style={styles.infoLabel}>Livreur:</Text>
+              <Text style={styles.infoValue}>{rec.livreur}</Text>
             </View>
           )}
         </View>
@@ -295,70 +317,74 @@ export const BonCommandePDF: React.FC<BonCommandePDFProps> = ({ bonCommande, qrC
         <View style={styles.table}>
           <View style={styles.tableHeader}>
             <Text style={[styles.tableHeaderText, styles.col1]}>#</Text>
-            <Text style={[styles.tableHeaderText, styles.col2]}>Matière</Text>
-            <Text style={[styles.tableHeaderText, styles.col3]}>Description</Text>
-            <Text style={[styles.tableHeaderText, styles.col4]}>Qté</Text>
-            <Text style={[styles.tableHeaderText, styles.col5]}>P.U. (FCFA)</Text>
-            <Text style={[styles.tableHeaderText, styles.col6]}>Total (FCFA)</Text>
+            <Text style={[styles.tableHeaderText, styles.col2]}>Code</Text>
+            <Text style={[styles.tableHeaderText, styles.col3]}>Désignation</Text>
+            <Text style={[styles.tableHeaderText, styles.col4]}>Qté Reçue</Text>
+            <Text style={[styles.tableHeaderText, styles.col5]}>Conforme</Text>
+            <Text style={[styles.tableHeaderText, styles.col6]}>Non Conf.</Text>
+            <Text style={[styles.tableHeaderText, styles.col7]}>Observations</Text>
           </View>
-          {bc.lignes.map((lg: any, i: number) => (
+          {rec.lignes.map((lg: any, i: number) => (
             <View key={i} style={i % 2 === 0 ? styles.tableRow : styles.tableRowAlt}>
               <Text style={[styles.tableCell, styles.col1]}>{i + 1}</Text>
-              <View style={styles.col2}>
-                <Text style={styles.tableCell}>{lg.matiereNom || 'N/A'}</Text>
-                <Text style={styles.tableCellSmall}>({lg.matiereCode || 'N/A'})</Text>
-              </View>
-              <Text style={[styles.tableCell, styles.col3]}>{lg.description}</Text>
-              <Text style={[styles.tableCell, styles.col4]}>{lg.quantite}</Text>
-              <Text style={[styles.tableCell, styles.col5]}>
-                {lg.prixUnitaire.toLocaleString('fr-FR')}
+              <Text style={[styles.tableCell, styles.col2]}>{lg.ligneBonCommande?.matiereCode || 'N/A'}</Text>
+              <Text style={[styles.tableCell, styles.col3]}>{lg.ligneBonCommande?.matiereNom || 'N/A'}</Text>
+              <Text style={[styles.tableCell, styles.col4]}>{lg.quantiteRecue}</Text>
+              <Text style={[styles.tableCell, styles.col5, { color: '#2E7D32' }]}>{lg.quantiteConforme}</Text>
+              <Text style={[styles.tableCell, styles.col6, { color: lg.quantiteNonConforme > 0 ? '#C62828' : '#000' }]}>
+                {lg.quantiteNonConforme}
               </Text>
-              <Text style={[styles.tableCell, styles.col6]}>
-                {(lg.quantite * lg.prixUnitaire).toLocaleString('fr-FR')}
-              </Text>
+              <Text style={[styles.tableCellSmall, styles.col7]}>{lg.observations || '-'}</Text>
             </View>
           ))}
         </View>
 
-        {/* Totals */}
-        <View style={styles.totalsBox}>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total HT:</Text>
-            <Text style={styles.totalValue}>{total.toLocaleString('fr-FR')} FCFA</Text>
+        {/* Summary */}
+        <View style={styles.summaryBox}>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Total articles reçus:</Text>
+            <Text style={styles.summaryValue}>{totalRecue}</Text>
           </View>
-          {bc.remise > 0 && (
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Remise ({bc.remise}%):</Text>
-              <Text style={styles.totalValue}>-{remise.toLocaleString('fr-FR')} FCFA</Text>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Articles conformes:</Text>
+            <Text style={styles.summaryValueGreen}>{totalConforme}</Text>
+          </View>
+          {totalNonConforme > 0 && (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Articles non conformes:</Text>
+              <Text style={styles.summaryValueRed}>{totalNonConforme}</Text>
             </View>
           )}
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>TVA ({bc.tauxTVA}%):</Text>
-            <Text style={styles.totalValue}>{tva.toLocaleString('fr-FR')} FCFA</Text>
-          </View>
-          <View style={[styles.totalRow, styles.totalFinal]}>
-            <Text style={styles.totalLabel}>Total TTC:</Text>
-            <Text style={styles.totalValue}>{ttc.toLocaleString('fr-FR')} FCFA</Text>
+          <View style={[styles.summaryRow, styles.summaryFinal]}>
+            <Text style={styles.summaryLabel}>Taux de conformité:</Text>
+            <Text style={tauxConformite >= 90 ? styles.summaryValueGreen : styles.summaryValueRed}>
+              {tauxConformite}%
+            </Text>
           </View>
         </View>
 
         {/* Observations */}
-        {bc.observations && (
+        {rec.observations && (
           <View style={styles.observations}>
-            <Text style={styles.observationsTitle}>Observations:</Text>
-            <Text style={styles.observationsText}>{bc.observations}</Text>
+            <Text style={styles.observationsTitle}>Observations générales:</Text>
+            <Text style={styles.observationsText}>{rec.observations}</Text>
           </View>
         )}
 
         {/* Signature Section */}
         <View style={styles.signatureSection}>
           <View style={styles.signatureBox}>
-            <Text style={styles.signatureLabel}>Le Chef du Service{'\n'}des Approvisionnements</Text>
+            <Text style={styles.signatureLabel}>Le Réceptionnaire</Text>
             <View style={styles.signatureLine} />
             <Text style={styles.signatureName}>Signature et Cachet</Text>
           </View>
           <View style={styles.signatureBox}>
-            <Text style={styles.signatureLabel}>Le Directeur</Text>
+            <Text style={styles.signatureLabel}>Le Livreur</Text>
+            <View style={styles.signatureLine} />
+            <Text style={styles.signatureName}>Signature</Text>
+          </View>
+          <View style={styles.signatureBox}>
+            <Text style={styles.signatureLabel}>Le Responsable</Text>
             <View style={styles.signatureLine} />
             <Text style={styles.signatureName}>Signature et Cachet</Text>
           </View>
@@ -366,7 +392,7 @@ export const BonCommandePDF: React.FC<BonCommandePDFProps> = ({ bonCommande, qrC
 
         {/* Footer */}
         <Text style={styles.footer}>
-          Document généré automatiquement - CROUS Ziguinchor
+          Document généré automatiquement - CROUS Ziguinchor - PV de Réception
         </Text>
       </Page>
     </Document>

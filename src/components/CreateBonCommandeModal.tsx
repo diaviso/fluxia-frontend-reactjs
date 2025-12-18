@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { bonCommandeService, type CreateBonCommandeDto } from '../services/bon-commande.service';
+import { fournisseurService, type Fournisseur } from '../services/fournisseur.service';
 import type { ExpressionDeBesoin } from '../services/expression.service';
 
 interface CreateBonCommandeModalProps {
@@ -13,7 +14,8 @@ export const CreateBonCommandeModal: React.FC<CreateBonCommandeModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const [fournisseur, setFournisseur] = useState('');
+  const [fournisseurId, setFournisseurId] = useState<number | undefined>(undefined);
+  const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
   const [adresseLivraison, setAdresseLivraison] = useState('');
   const [tauxTVA, setTauxTVA] = useState(20);
   const [remise, setRemise] = useState(0);
@@ -23,6 +25,9 @@ export const CreateBonCommandeModal: React.FC<CreateBonCommandeModalProps> = ({
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // Load fournisseurs
+    fournisseurService.getAll().then(setFournisseurs).catch(console.error);
+    
     // Initialize lignes from expression
     const initialLignes = expression.lignes.map((ligne) => ({
       description: ligne.description,
@@ -41,20 +46,9 @@ export const CreateBonCommandeModal: React.FC<CreateBonCommandeModalProps> = ({
     setError('');
 
     try {
-      console.log('Creating bon de commande with expressionId:', expression.id);
-      console.log('Full data:', {
-        expressionId: expression.id,
-        fournisseur: fournisseur || undefined,
-        adresseLivraison: adresseLivraison || undefined,
-        tauxTVA,
-        remise,
-        observations: observations || undefined,
-        lignes,
-      });
-      
       await bonCommandeService.create({
         expressionId: expression.id,
-        fournisseur: fournisseur || undefined,
+        fournisseurId: fournisseurId || undefined,
         adresseLivraison: adresseLivraison || undefined,
         tauxTVA,
         remise,
@@ -295,13 +289,16 @@ export const CreateBonCommandeModal: React.FC<CreateBonCommandeModalProps> = ({
             <div style={styles.row}>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Fournisseur</label>
-                <input
-                  type="text"
+                <select
                   style={styles.input}
-                  value={fournisseur}
-                  onChange={(e) => setFournisseur(e.target.value)}
-                  placeholder="Nom du fournisseur"
-                />
+                  value={fournisseurId || ''}
+                  onChange={(e) => setFournisseurId(e.target.value ? Number(e.target.value) : undefined)}
+                >
+                  <option value="">-- Sélectionner un fournisseur --</option>
+                  {fournisseurs.map((f) => (
+                    <option key={f.id} value={f.id}>{f.raisonSociale} ({f.code})</option>
+                  ))}
+                </select>
               </div>
 
               <div style={styles.formGroup}>

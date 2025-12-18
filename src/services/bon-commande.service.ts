@@ -4,10 +4,37 @@ export interface LigneBonCommande {
   id: number;
   description: string;
   quantite: number;
+  quantiteRecue: number;
   prixUnitaire: number;
   matiereCode: string;
   matiereNom: string;
   unite: string;
+}
+
+export interface Fournisseur {
+  id: number;
+  code: string;
+  raisonSociale: string;
+  adresse?: string;
+  telephone?: string;
+  email?: string;
+  ice?: string;
+  rc?: string;
+}
+
+export interface Reception {
+  id: number;
+  numero: string;
+  dateReception: string;
+  livreur?: string;
+  observations?: string;
+  pvGenere: boolean;
+  lignes: {
+    id: number;
+    quantiteRecue: number;
+    quantiteConforme: number;
+    quantiteNonConforme: number;
+  }[];
 }
 
 export interface BonCommande {
@@ -15,14 +42,18 @@ export interface BonCommande {
   numero: string;
   expressionId: number;
   dateEmission: string;
-  fournisseur?: string;
+  fournisseur?: Fournisseur;
+  fournisseurId?: number;
   adresseLivraison?: string;
   tauxTVA: number;
   remise: number;
   observations?: string;
+  statut: 'EN_ATTENTE' | 'VALIDE' | 'PARTIELLEMENT_LIVRE' | 'LIVRE' | 'ANNULE';
   lignes: LigneBonCommande[];
+  receptions?: Reception[];
   expression?: {
     id: number;
+    numero?: string;
     titre: string;
     division: {
       id: number;
@@ -47,7 +78,7 @@ export interface BonCommande {
 
 export interface CreateBonCommandeDto {
   expressionId: number;
-  fournisseur?: string;
+  fournisseurId?: number;
   adresseLivraison?: string;
   tauxTVA?: number;
   remise?: number;

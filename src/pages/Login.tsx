@@ -20,12 +20,12 @@ export const Login = () => {
         <div style={styles.leftPanel}>
           <div style={styles.logoSection}>
             <div style={styles.logo}>📋</div>
-            <h1 style={styles.appTitle}>BesoinPro</h1>
+            <h1 style={styles.appTitle}>Fluxia</h1>
             <p style={styles.appSubtitle}>Gestion Professionnelle des Besoins</p>
           </div>
 
           <div style={styles.description}>
-            <h2 style={styles.descTitle}>Bienvenue sur BesoinPro</h2>
+            <h2 style={styles.descTitle}>Bienvenue sur Fluxia</h2>
             <p style={styles.descText}>
               Une plateforme moderne et intuitive pour la gestion professionnelle des expressions de besoin 
               au sein du Centre Régional des Œuvres Universitaires de Ziguinchor (CROUS).

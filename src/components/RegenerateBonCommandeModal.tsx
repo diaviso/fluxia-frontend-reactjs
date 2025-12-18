@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { bonCommandeService, type BonCommande } from '../services/bon-commande.service';
+import { fournisseurService, type Fournisseur } from '../services/fournisseur.service';
 
 interface RegenerateBonCommandeModalProps {
   bonCommande: BonCommande;
@@ -12,7 +13,8 @@ export const RegenerateBonCommandeModal: React.FC<RegenerateBonCommandeModalProp
   onClose,
   onSuccess,
 }) => {
-  const [fournisseur, setFournisseur] = useState(bonCommande.fournisseur || '');
+  const [fournisseurId, setFournisseurId] = useState<number | undefined>(bonCommande.fournisseurId);
+  const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
   const [adresseLivraison, setAdresseLivraison] = useState(bonCommande.adresseLivraison || '');
   const [tauxTVA, setTauxTVA] = useState(bonCommande.tauxTVA);
   const [remise, setRemise] = useState(bonCommande.remise);
@@ -28,6 +30,10 @@ export const RegenerateBonCommandeModal: React.FC<RegenerateBonCommandeModalProp
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    fournisseurService.getAll().then(setFournisseurs).catch(console.error);
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -36,7 +42,7 @@ export const RegenerateBonCommandeModal: React.FC<RegenerateBonCommandeModalProp
     try {
       await bonCommandeService.regenerate(bonCommande.id, {
         expressionId: bonCommande.expressionId,
-        fournisseur: fournisseur || undefined,
+        fournisseurId: fournisseurId || undefined,
         adresseLivraison: adresseLivraison || undefined,
         tauxTVA,
         remise,
@@ -281,13 +287,16 @@ export const RegenerateBonCommandeModal: React.FC<RegenerateBonCommandeModalProp
             <div style={styles.row}>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Fournisseur</label>
-                <input
-                  type="text"
+                <select
                   style={styles.input}
-                  value={fournisseur}
-                  onChange={(e) => setFournisseur(e.target.value)}
-                  placeholder="Nom du fournisseur"
-                />
+                  value={fournisseurId || ''}
+                  onChange={(e) => setFournisseurId(e.target.value ? Number(e.target.value) : undefined)}
+                >
+                  <option value="">-- Sélectionner un fournisseur --</option>
+                  {fournisseurs.map((f) => (
+                    <option key={f.id} value={f.id}>{f.raisonSociale} ({f.code})</option>
+                  ))}
+                </select>
               </div>
 
               <div style={styles.formGroup}>
